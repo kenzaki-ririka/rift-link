@@ -1,5 +1,5 @@
 // Service Worker - 裂隙通讯
-const CACHE_NAME = 'rift-link-v1';
+const CACHE_NAME = 'rift-link-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -11,6 +11,9 @@ const urlsToCache = [
   '/js/storage.js',
   '/js/time.js',
   '/data/presets.js',
+  '/data/presets/index.json',
+  '/data/presets/inori.json',
+  '/data/presets/yuzuki.json',
   '/icon-192.svg'
 ];
 

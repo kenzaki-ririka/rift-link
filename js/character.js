@@ -171,7 +171,11 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
   },
 
   // 初始化预设角色到存储
-  initPresets() {
+  async initPresets() {
+    // 加载预设角色 JSON 文件
+    await PresetLoader.loadAll();
+    PRESET_CHARACTERS = PresetLoader.getAll();
+    
     const channels = Storage.getChannels();
     
     // 检查预设角色是否已存在

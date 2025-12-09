@@ -5,9 +5,9 @@ const App = {
   editingChannelId: null,
 
   // 初始化
-  init() {
-    // 初始化预设角色
-    Character.initPresets();
+  async init() {
+    // 初始化预设角色（异步加载 JSON）
+    await Character.initPresets();
 
     // 检查URL参数
     const path = window.location.hash.slice(1) || '';

@@ -12,7 +12,7 @@ const filesToCopy = [
   'icon-192.svg',
   'css',
   'js',
-  'data'
+  'data'  // 包含 presets.js 和 presets/ 目录
 ];
 
 // 递归复制目录
@@ -61,5 +61,4 @@ for (const file of filesToCopy) {
 }
 
 console.log('\n✅ 文件已复制到 www 目录');
-
 
