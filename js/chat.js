@@ -1,7 +1,8 @@
 // 聊天逻辑
 const Chat = {
   currentChannelId: null,
-  proactiveTimer: null,
+  proactiveTimer: null,           // 定时概率检查（每10分钟）
+  scheduledContactTimer: null,    // AI 决定的精确定时联络
 
   // 初始化聊天
   async init(channelId) {
@@ -11,6 +12,10 @@ const Chat = {
     if (this.proactiveTimer) {
       clearInterval(this.proactiveTimer);
       this.proactiveTimer = null;
+    }
+    if (this.scheduledContactTimer) {
+      clearTimeout(this.scheduledContactTimer);
+      this.scheduledContactTimer = null;
     }
 
     const channel = Storage.getChannel(channelId);
@@ -84,7 +89,7 @@ const Chat = {
   },
 
   // 生成主动消息
-  async generateProactiveMessage(channelId, timestamp = null) {
+  async generateProactiveMessage(channelId, timestamp = null, reason = null) {
     const channel = Storage.getChannel(channelId);
     if (!channel) return;
 
@@ -95,8 +100,8 @@ const Chat = {
     const messages = channel.messages || [];
     const timeContext = TimeManager.buildTimeContext(messages, msgTimestamp);
     
-    // 构建提示词
-    const systemPrompt = Character.buildProactivePrompt(channel, timeContext);
+    // 构建提示词（传入 reason）
+    const systemPrompt = Character.buildProactivePrompt(channel, timeContext, reason);
     
     // 准备消息历史
     const historyLimit = settings.historyLimit || 20;
@@ -128,6 +133,9 @@ const Chat = {
       // 清除待处理的联络
       Storage.clearPendingContact(channelId);
 
+      // 重置概率检查计时器（避免短时间内连发）
+      this.resetProactiveTimer(channel);
+
       return newMsg;
     } catch (error) {
       console.error('Failed to generate proactive message:', error);
@@ -152,8 +160,20 @@ const Chat = {
     };
     Storage.saveMessage(channelId, userMsg);
 
-    // 取消待处理的主动联络（因为用户主动联系了）
-    Storage.clearPendingContact(channelId);
+    // 检查待处理的主动联络是否是持久的
+    const pendingContact = Storage.getPendingContact(channelId);
+    if (pendingContact && pendingContact.persistent) {
+      // 持久联络不取消
+      console.log('[Chat] 用户发言，但保留持久联络：', pendingContact.reason);
+    } else {
+      // 取消非持久的主动联络
+      Storage.clearPendingContact(channelId);
+      if (this.scheduledContactTimer) {
+        clearTimeout(this.scheduledContactTimer);
+        this.scheduledContactTimer = null;
+        console.log('[Chat] 用户发言，取消待处理的主动联络');
+      }
+    }
 
     // 构建时间上下文
     const messages = Storage.getMessages(channelId);
@@ -213,8 +233,12 @@ const Chat = {
       const sendAt = new Date(Date.now() + delayMs);
       Storage.setPendingContact(channelId, {
         sendAt: sendAt.toISOString(),
-        reason: nextContact.reason
+        reason: nextContact.reason,
+        persistent: nextContact.persistent || false  // 是否持久（不被玩家消息取消）
       });
+
+      // 设置定时器来实际发送主动消息
+      this.scheduleNextContact(channelId, delayMs, nextContact.reason);
     }
 
     // 移除标记
@@ -232,11 +256,63 @@ const Chat = {
     return assistantMsg;
   },
 
+  // 重置概率检查计时器（主动消息发送后调用，避免短时间内连发）
+  resetProactiveTimer(channel) {
+    if (this.proactiveTimer) {
+      clearInterval(this.proactiveTimer);
+      this.proactiveTimer = null;
+      console.log('[Chat] 重置概率检查计时器');
+    }
+    // 重新设置
+    this.setupProactiveCheck(channel);
+  },
+
+  // 安排 AI 决定的主动联络
+  scheduleNextContact(channelId, delayMs, reason) {
+    // 清除之前的定时器
+    if (this.scheduledContactTimer) {
+      clearTimeout(this.scheduledContactTimer);
+      this.scheduledContactTimer = null;
+    }
+
+    console.log(`[Chat] 安排主动联络：${delayMs}ms 后 (${Math.round(delayMs/1000)}秒)，原因：${reason || '无'}`);
+
+    this.scheduledContactTimer = setTimeout(async () => {
+      // 确保还在同一个频道
+      if (this.currentChannelId !== channelId) {
+        console.log('[Chat] 频道已切换，取消主动联络');
+        return;
+      }
+
+      // 检查是否还有待处理的联络（可能被用户发言取消了）
+      const pendingContact = Storage.getPendingContact(channelId);
+      if (!pendingContact) {
+        console.log('[Chat] 待处理联络已被清除，跳过');
+        return;
+      }
+
+      console.log('[Chat] 执行主动联络...');
+
+      try {
+        const msg = await this.generateProactiveMessage(channelId, null, reason);
+        if (msg && window.App) {
+          window.App.renderChat(channelId);
+        }
+      } catch (error) {
+        console.error('[Chat] 主动联络失败:', error);
+      }
+    }, delayMs);
+  },
+
   // 清理
   cleanup() {
     if (this.proactiveTimer) {
       clearInterval(this.proactiveTimer);
       this.proactiveTimer = null;
+    }
+    if (this.scheduledContactTimer) {
+      clearTimeout(this.scheduledContactTimer);
+      this.scheduledContactTimer = null;
     }
     this.currentChannelId = null;
   }

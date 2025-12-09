@@ -72,6 +72,18 @@ ${timeContext.context}
 - "minutes"：一般情况（1-30分钟）
 - "hours"：之后再聊（1-24小时）
 
+## 持久联络（不会被取消）
+
+如果对方要求你在特定时间联络（如"明早叫我"、"一小时后提醒我"），添加 \`"persistent": true\`：
+
+\`\`\`json
+{"nextContact": {"time": 8, "unit": "hours", "reason": "叫对方起床", "persistent": true}}
+\`\`\`
+
+持久联络**不会**被对方的后续消息取消，适用于：
+- 对方要求的提醒/闹钟
+- 约定好的时间联络
+
 ## 示例回复
 
 示例1 - 激动时想连续说：
@@ -86,7 +98,13 @@ ${timeContext.context}
 {"nextContact": {"time": 10, "unit": "minutes", "reason": "突然想到一件事"}}
 \`\`\`
 
-示例3 - 暂时不主动联络：
+示例3 - 对方要求的提醒（持久）：
+你的消息内容...
+\`\`\`json
+{"nextContact": {"time": 6, "unit": "hours", "reason": "叫对方起床", "persistent": true}}
+\`\`\`
+
+示例4 - 暂时不主动联络：
 你的消息内容...
 \`\`\`json
 {"nextContact": null}
