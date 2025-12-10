@@ -774,14 +774,6 @@ const App = {
         </div>
         
         <div class="create-options-list">
-          <div class="create-option" onclick="App.showPresets()">
-            <div class="create-option-icon">📚</div>
-            <div class="create-option-info">
-              <div class="create-option-title">从预设选择</div>
-              <div class="create-option-desc">浏览预设的角色模板</div>
-            </div>
-          </div>
-          
           <div class="create-option" onclick="App.showGenerator()">
             <div class="create-option-icon">✨</div>
             <div class="create-option-info">
@@ -808,79 +800,6 @@ const App = {
         </div>
       </div>
     `;
-  },
-
-  // 显示预设列表
-  async showPresets() {
-    this.currentView = 'presets';
-    const app = document.getElementById('app');
-    
-    app.innerHTML = `
-      <div class="presets-screen">
-        <div class="presets-header">
-          <button onclick="App.showCreateOptions()">← 返回</button>
-          <h2>预设角色</h2>
-        </div>
-        <div class="presets-loading">加载中...</div>
-      </div>
-    `;
-    
-    try {
-      const response = await fetch('data/presets/index.json');
-      const presetIndex = await response.json();
-      
-      const presetsHtml = presetIndex.presets.map(preset => `
-        <div class="preset-card" onclick="App.loadPreset('${preset.id}')">
-          <div class="preset-avatar">${preset.avatar}</div>
-          <div class="preset-info">
-            <div class="preset-name">${preset.name}</div>
-            <div class="preset-tagline">${preset.tagline}</div>
-          </div>
-        </div>
-      `).join('');
-      
-      app.innerHTML = `
-        <div class="presets-screen">
-          <div class="presets-header">
-            <button onclick="App.showCreateOptions()">← 返回</button>
-            <h2>预设角色</h2>
-          </div>
-          <div class="presets-list">
-            ${presetsHtml}
-          </div>
-        </div>
-      `;
-    } catch (error) {
-      console.error('Load presets error:', error);
-      app.innerHTML = `
-        <div class="presets-screen">
-          <div class="presets-header">
-            <button onclick="App.showCreateOptions()">← 返回</button>
-            <h2>预设角色</h2>
-          </div>
-          <div class="presets-error">加载预设失败</div>
-        </div>
-      `;
-    }
-  },
-
-  // 加载预设
-  async loadPreset(presetId) {
-    try {
-      const response = await fetch(`data/presets/${presetId}.json`);
-      const presetData = await response.json();
-      
-      const channel = presetData.channel;
-      channel.id = 'ch_' + Date.now();
-      channel.isPreset = false;
-      channel.messages = [];
-      
-      Storage.saveChannel(channel);
-      this.showChat(channel.id);
-    } catch (error) {
-      console.error('Load preset error:', error);
-      alert('加载预设失败');
-    }
   },
 
   // ========== AI生成角色 ==========
