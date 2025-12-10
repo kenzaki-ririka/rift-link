@@ -1,0 +1,23 @@
+{
+  "name": "rift-link",
+  "version": "0.3.0-dev",
+  "description": "裂隙通讯 - 连接另一个世界",
+  "main": "index.html",
+  "scripts": {
+    "copy": "node scripts/copy-to-www.js",
+    "build": "npm run copy && npx cap sync android",
+    "open": "npx cap open android",
+    "run": "npm run copy && npx cap run android"
+  },
+  "keywords": ["chat", "roleplay", "pwa"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  }
+}
+
