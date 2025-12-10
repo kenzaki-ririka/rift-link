@@ -1,10 +1,34 @@
 {
   "presets": [
-    "inori.json",
-    "yuzuki.json",
-    "lira.json",
-    "shiori.json",
-    "haruka.json"
+    {
+      "id": "inori",
+      "name": "祈",
+      "avatar": "🌙",
+      "tagline": "来自异世界的神秘少女"
+    },
+    {
+      "id": "yuzuki",
+      "name": "柚希",
+      "avatar": "🌆",
+      "tagline": "空无一人的世界，只剩下她"
+    },
+    {
+      "id": "lira",
+      "name": "莉拉",
+      "avatar": "⚔️",
+      "tagline": "末日幸存者，独自对抗丧尸"
+    },
+    {
+      "id": "shiori",
+      "name": "栞",
+      "avatar": "📚",
+      "tagline": "被困在无限循环中的书店店员"
+    },
+    {
+      "id": "haruka",
+      "name": "遥",
+      "avatar": "🌸",
+      "tagline": "平行世界的你的青梅竹马"
+    }
   ]
 }
-
