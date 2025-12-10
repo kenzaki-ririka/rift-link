@@ -163,7 +163,7 @@ const TimeManager = {
     else if (hours >= 18 && hours < 22) timeOfDay = '晚上';
     else timeOfDay = '深夜';
 
-    context += `对方那边现在是：${timeOfDay}（${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}）`;
+    context += `你那边现在是：${timeOfDay}（${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}）`;
 
     return {
       isFirstContact: false,

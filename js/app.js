@@ -219,10 +219,8 @@ const App = {
   },
 
   handleInputKeydown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      this.sendMessage();
-    }
+    // 回车只换行，不发送
+    // 发送只能用按钮
   },
 
   autoResizeInput(textarea) {

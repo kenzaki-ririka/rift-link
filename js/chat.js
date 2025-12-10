@@ -113,7 +113,7 @@ const Chat = {
     // 添加一个触发消息
     recentMessages.push({
       role: 'user',
-      content: '[系统：请生成一条你主动发送的消息]'
+      content: `[系统：请生成一条你主动发送的消息。你那边现在是：${timeOfDay}${hours}:${minutes}]`
     });
 
     try {
