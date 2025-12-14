@@ -624,9 +624,9 @@ const App = {
             </div>
             
             <div class="editor-row">
-              <label>第一条消息</label>
-              <textarea id="ed_firstMessage" class="large" placeholder="用户第一次打开时看到的消息...">${this.escapeHtml(channel.connection?.firstMessage || '')}</textarea>
-              <div class="hint">这是角色发出的第一条消息，用于建立联系</div>
+              <label>第一条消息（可选）</label>
+              <textarea id="ed_firstMessage" class="large" placeholder="用户第一次打开时看到的消息...（留空则等待用户先开口）">${this.escapeHtml(channel.connection?.firstMessage || '')}</textarea>
+              <div class="hint">角色发出的第一条消息。留空表示等待用户先开口</div>
             </div>
           </div>
 

@@ -288,9 +288,7 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
     if (!character.character?.background?.trim()) {
       errors.push('请填写角色背景');
     }
-    if (!character.connection?.firstMessage?.trim()) {
-      errors.push('请填写第一条消息');
-    }
+    // firstMessage 现在是可选的，不再强制要求
 
     return errors;
   }
