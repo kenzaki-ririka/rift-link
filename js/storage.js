@@ -66,6 +66,18 @@ const Storage = {
         channel.connection = { medium: '', mediumDescription: '', firstMessage: '' };
         needsSave = true;
       }
+
+      // 迁移6：确保 schedule 对象存在
+      if (!channel.schedule) {
+        channel.schedule = {
+          enabled: true,
+          routine: [
+            { start: "23:00", end: "07:00", label: "睡眠中", noreply: true, chance: 0.05 }
+          ],
+          temporary: null  // AI 设置的临时状态
+        };
+        needsSave = true;
+      }
     }
 
     if (needsSave) {
@@ -241,6 +253,87 @@ const Storage = {
     if (oldStatus) {
       console.log('[Storage] 清除状态:', oldStatus.label || oldStatus.type);
     }
+  },
+
+  // ========== 日程系统 ==========
+  getSchedule(channelId) {
+    const channel = this.getChannel(channelId);
+    return channel?.schedule || null;
+  },
+
+  saveSchedule(channelId, schedule) {
+    const channel = this.getChannel(channelId);
+    if (!channel) return;
+    channel.schedule = schedule;
+    this.saveChannel(channel);
+  },
+
+  // 根据当前时间检查日程，返回匹配的状态（临时状态优先）
+  getScheduleStatus(channelId) {
+    const channel = this.getChannel(channelId);
+    if (!channel?.schedule?.enabled) return null;
+
+    const schedule = channel.schedule;
+
+    // 临时状态优先
+    if (schedule.temporary) {
+      if (new Date(schedule.temporary.until) > new Date()) {
+        return schedule.temporary;
+      } else {
+        // 临时状态已过期，清除
+        this.clearTemporary(channelId);
+      }
+    }
+
+    // 检查日程
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();  // 转换为分钟
+
+    for (const slot of schedule.routine || []) {
+      const [startH, startM] = slot.start.split(':').map(Number);
+      const [endH, endM] = slot.end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      let inSlot = false;
+      if (startMinutes <= endMinutes) {
+        // 不跨日：如 09:00-18:00
+        inSlot = currentTime >= startMinutes && currentTime < endMinutes;
+      } else {
+        // 跨日：如 23:00-07:00
+        inSlot = currentTime >= startMinutes || currentTime < endMinutes;
+      }
+
+      if (inSlot) {
+        return {
+          label: slot.label,
+          noreply: slot.noreply || false,
+          chance: slot.chance,
+          delay: slot.delay,
+          fromSchedule: true
+        };
+      }
+    }
+
+    return null;
+  },
+
+  setTemporary(channelId, temporary) {
+    const channel = this.getChannel(channelId);
+    if (!channel?.schedule) return;
+
+    channel.schedule.temporary = temporary;
+    this.saveChannel(channel);
+    console.log('[Storage] 设置临时状态:', temporary.label, '至', temporary.until);
+  },
+
+  clearTemporary(channelId) {
+    const channel = this.getChannel(channelId);
+    if (!channel?.schedule) return;
+
+    channel.schedule.temporary = null;
+    this.saveChannel(channel);
+    console.log('[Storage] 清除临时状态');
   },
 
   // ========== 主动联络状态 ==========

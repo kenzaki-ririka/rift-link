@@ -308,6 +308,12 @@ const Chat = {
       }
     }
 
+    // 解析并处理临时状态标记
+    const tempData = Character.parseTemporaryTag(reply);
+    if (tempData) {
+      Character.processTemporary(channelId, tempData);
+    }
+
     // 解析主动联络标记
     const nextContact = Character.parseProactiveTag(reply);
     if (nextContact) {

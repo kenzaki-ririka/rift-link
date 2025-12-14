@@ -61,6 +61,17 @@ const Character = {
 
 ## 清除状态
 - \`<st:clear>\` = 清除当前状态
+
+## 临时状态（覆盖日程）
+需要临时改变状态时：
+- \`<temp:外出:2h|noreply>\` = 临时外出2小时，不回复
+- \`<temp:clear>\` = 清除临时状态，恢复日程
+
+---
+
+# 你的日程
+
+{{schedule}}
 `,
 
   // 可用的占位符列表（用于帮助文档）
@@ -71,7 +82,8 @@ const Character = {
     '{{personality}}': '性格特点',
     '{{speechStyle}}': '说话风格',
     '{{medium}}': '通讯媒介（包含描述）',
-    '{{timeContext}}': '时间上下文（系统自动生成）'
+    '{{timeContext}}': '时间上下文（系统自动生成）',
+    '{{schedule}}': '角色日程（系统自动生成）'
   },
 
   // 构建系统提示词
@@ -86,6 +98,9 @@ const Character = {
     const worldText = (world.name ? `**${world.name}**\n` : '') + (world.description || '');
     const mediumText = (connection.medium || '') + (connection.mediumDescription ? '\n' + connection.mediumDescription : '');
 
+    // 构建日程信息
+    const scheduleText = this.buildScheduleText(character.id);
+
     const replacements = {
       '{{name}}': character.name || '未命名',
       '{{world}}': worldText,
@@ -93,7 +108,8 @@ const Character = {
       '{{personality}}': char.personality || '',
       '{{speechStyle}}': char.speechStyle || '',
       '{{medium}}': mediumText,
-      '{{timeContext}}': timeContext.context || ''
+      '{{timeContext}}': timeContext.context || '',
+      '{{schedule}}': scheduleText
     };
 
     // 执行占位符替换
@@ -103,6 +119,42 @@ const Character = {
     }
 
     return prompt;
+  },
+
+  // 构建日程信息文本
+  buildScheduleText(channelId) {
+    const schedule = Storage.getSchedule(channelId);
+    if (!schedule || !schedule.enabled) {
+      return '（未设置日程）';
+    }
+
+    let text = '';
+
+    // 固定日程
+    if (schedule.routine && schedule.routine.length > 0) {
+      text += '固定日程：\n';
+      for (const slot of schedule.routine) {
+        text += `- ${slot.start}-${slot.end} ${slot.label}`;
+        if (slot.noreply) text += '（不回复）';
+        text += '\n';
+      }
+    }
+
+    // 当前状态
+    const currentStatus = Storage.getScheduleStatus(channelId);
+    if (currentStatus) {
+      text += `\n当前状态：${currentStatus.label}`;
+      if (currentStatus.fromSchedule) {
+        text += '（按日程）';
+      }
+      if (currentStatus.noreply) {
+        text += ' - 不回复消息';
+      }
+    } else {
+      text += '\n当前状态：在线';
+    }
+
+    return text;
   },
 
   // 默认主动联络提示词模板
@@ -301,12 +353,58 @@ const Character = {
     }
   },
 
+  // 解析临时状态标签：<temp:标签:时长|选项> 或 <temp:clear>
+  parseTemporaryTag(text) {
+    // 清除临时状态
+    if (text.includes('<temp:clear>')) {
+      return { clear: true };
+    }
+
+    // 设置临时状态：<temp:标签:时长|选项>
+    const tempMatch = text.match(/<temp:([^:>]+):(\d+)([smh])(?:\|([^>]+))?>/);
+    if (tempMatch) {
+      const label = tempMatch[1];
+      const time = parseInt(tempMatch[2]);
+      const unitChar = tempMatch[3];
+      const options = tempMatch[4] || '';
+
+      const unitMap = { 's': 1000, 'm': 60 * 1000, 'h': 60 * 60 * 1000 };
+      const until = new Date(Date.now() + time * unitMap[unitChar]).toISOString();
+
+      return {
+        set: {
+          label: label,
+          until: until,
+          noreply: options.includes('noreply'),
+          chance: options.match(/chance:([\d.]+)/) ? parseFloat(options.match(/chance:([\d.]+)/)[1]) : undefined
+        }
+      };
+    }
+
+    return null;
+  },
+
+  // 处理临时状态
+  processTemporary(channelId, tempData) {
+    if (!tempData) return;
+
+    if (tempData.clear) {
+      Storage.clearTemporary(channelId);
+      return;
+    }
+
+    if (tempData.set) {
+      Storage.setTemporary(channelId, tempData.set);
+    }
+  },
+
   // 移除控制标记
   removeProactiveTag(text) {
     return text
       // 移除短标签
       .replace(/<nc!?:\d+[smh](?::[^>]+)?>/g, '')
       .replace(/<st:[^>]+>/g, '')
+      .replace(/<temp:[^>]+>/g, '')
       // 移除旧格式 JSON 代码块
       .replace(/```json\s*\n?\s*\{[\s\S]*?\}\s*\n?\s*```/g, '')
       // 移除旧格式 HTML 注释
