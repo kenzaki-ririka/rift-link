@@ -3,7 +3,8 @@ const Storage = {
   KEYS: {
     SETTINGS: 'rift_settings',
     CHANNELS: 'rift_channels',
-    CURRENT_CHANNEL: 'rift_current_channel'
+    CURRENT_CHANNEL: 'rift_current_channel',
+    PROMPT_TEMPLATE: 'rift_prompt_template'
   },
 
   // 数据版本，用于迁移
@@ -16,7 +17,7 @@ const Storage = {
 
     for (const channelId in channels) {
       const channel = channels[channelId];
-      
+
       // 迁移1：确保消息有 id
       if (channel.messages && channel.messages.length > 0) {
         channel.messages.forEach((msg, index) => {
@@ -87,6 +88,20 @@ const Storage = {
     localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(settings));
   },
 
+  // ========== 提示词模板 ==========
+  getPromptTemplate() {
+    const data = localStorage.getItem(this.KEYS.PROMPT_TEMPLATE);
+    return data ? JSON.parse(data) : null;  // null 表示使用默认模板
+  },
+
+  savePromptTemplate(template) {
+    localStorage.setItem(this.KEYS.PROMPT_TEMPLATE, JSON.stringify(template));
+  },
+
+  clearPromptTemplate() {
+    localStorage.removeItem(this.KEYS.PROMPT_TEMPLATE);
+  },
+
   // ========== 频道（角色）管理 ==========
   getChannels() {
     const data = localStorage.getItem(this.KEYS.CHANNELS);
@@ -112,7 +127,7 @@ const Storage = {
     const channels = this.getChannels();
     delete channels[channelId];
     this.saveChannels(channels);
-    
+
     // 如果删除的是当前频道，清除当前频道记录
     if (this.getCurrentChannelId() === channelId) {
       this.setCurrentChannelId(null);
@@ -141,7 +156,7 @@ const Storage = {
   saveMessage(channelId, message) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     if (!channel.messages) {
       channel.messages = [];
     }
@@ -153,7 +168,7 @@ const Storage = {
   deleteMessage(channelId, messageId) {
     const channel = this.getChannel(channelId);
     if (!channel || !channel.messages) return;
-    
+
     const index = channel.messages.findIndex(m => m.id === messageId);
     if (index !== -1) {
       channel.messages.splice(index, 1);
@@ -165,7 +180,7 @@ const Storage = {
   updateMessage(channelId, messageId, updates) {
     const channel = this.getChannel(channelId);
     if (!channel || !channel.messages) return;
-    
+
     const message = channel.messages.find(m => m.id === messageId);
     if (message) {
       Object.assign(message, updates);
@@ -178,21 +193,21 @@ const Storage = {
   getStatus(channelId) {
     const channel = this.getChannel(channelId);
     if (!channel?.status) return null;
-    
+
     // 检查状态是否已过期
     if (channel.status.endsAt && new Date(channel.status.endsAt) < new Date()) {
       // 状态已过期，自动清除
       this.clearStatus(channelId);
       return null;
     }
-    
+
     return channel.status;
   },
 
   setStatus(channelId, status) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     channel.status = {
       ...status,
       startedAt: new Date().toISOString()
@@ -204,7 +219,7 @@ const Storage = {
   clearStatus(channelId) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     const oldStatus = channel.status;
     channel.status = null;
     this.saveChannel(channel);
@@ -222,7 +237,7 @@ const Storage = {
   setPendingContact(channelId, pendingContact) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     channel.pendingContact = pendingContact;
     this.saveChannel(channel);
   },
@@ -230,7 +245,7 @@ const Storage = {
   clearPendingContact(channelId) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     channel.pendingContact = null;
     this.saveChannel(channel);
   },
@@ -243,7 +258,7 @@ const Storage = {
   setLastVisit(channelId, timestamp) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    
+
     channel.lastVisit = timestamp;
     this.saveChannel(channel);
   },
@@ -263,7 +278,7 @@ const Storage = {
     if (!data || data.version !== 1) {
       throw new Error('无效的备份文件');
     }
-    
+
     if (data.settings) {
       this.saveSettings(data.settings);
     }
@@ -278,7 +293,7 @@ const Storage = {
   exportChannel(channelId) {
     const channel = this.getChannel(channelId);
     if (!channel) return null;
-    
+
     return {
       version: 1,
       type: 'channel',
@@ -291,7 +306,7 @@ const Storage = {
     if (!data || data.version !== 1 || data.type !== 'channel') {
       throw new Error('无效的角色卡文件');
     }
-    
+
     const channel = data.channel;
     // 生成新ID避免冲突
     channel.id = 'char_' + Date.now();

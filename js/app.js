@@ -1164,6 +1164,16 @@ const App = {
           </div>
 
           <div class="settings-section">
+            <h3>提示词模板</h3>
+            <div class="hint" style="margin-bottom: 12px;">自定义 AI 的系统提示词，控制角色行为</div>
+            <div class="settings-buttons">
+              <button onclick="App.showPromptEditor()">编辑提示词模板</button>
+              ${Storage.getPromptTemplate() ? '<button onclick="App.resetPromptTemplate()" class="danger">恢复默认</button>' : ''}
+            </div>
+            ${Storage.getPromptTemplate() ? '<div class="hint" style="margin-top: 8px; color: var(--accent);">✓ 正在使用自定义模板</div>' : ''}
+          </div>
+
+          <div class="settings-section">
             <h3>数据管理</h3>
             <div class="settings-buttons">
               <button onclick="App.exportAll()">导出全部数据</button>
@@ -1222,6 +1232,74 @@ const App = {
       this.showChat(this.currentChannelId);
     } else {
       this.showSelect();
+    }
+  },
+
+  // ========== 提示词模板编辑 ==========
+  showPromptEditor() {
+    this.currentView = 'promptEditor';
+    const currentTemplate = Storage.getPromptTemplate() || Character.DEFAULT_PROMPT_TEMPLATE;
+
+    // 生成占位符说明
+    const placeholderHelp = Object.entries(Character.PLACEHOLDERS)
+      .map(([key, desc]) => `<code>${key}</code> - ${desc}`)
+      .join('<br>');
+
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div class="editor-screen">
+        <div class="editor-header">
+          <h2>提示词模板</h2>
+          <div class="editor-header-actions">
+            <button onclick="App.showSettings()">取消</button>
+            <button onclick="App.savePromptTemplate()" class="primary">保存</button>
+          </div>
+        </div>
+        
+        <div class="editor-content">
+          <div class="editor-section">
+            <h3>可用占位符</h3>
+            <div class="hint" style="line-height: 1.8;">${placeholderHelp}</div>
+          </div>
+          
+          <div class="editor-section">
+            <h3>模板内容</h3>
+            <div class="hint" style="margin-bottom: 12px;">这是发送给 AI 的系统提示词，定义角色如何扮演和互动</div>
+            <textarea id="prompt_template" class="prompt-editor" placeholder="提示词模板...">${this.escapeHtml(currentTemplate)}</textarea>
+          </div>
+          
+          <div class="editor-section">
+            <div class="settings-buttons">
+              <button onclick="App.resetPromptToDefault()">恢复为默认模板</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  savePromptTemplate() {
+    const template = document.getElementById('prompt_template')?.value;
+    if (template && template.trim()) {
+      Storage.savePromptTemplate(template);
+      const msg = '提示词模板已保存';
+      window.showToast ? showToast(msg) : alert(msg);
+    }
+    this.showSettings();
+  },
+
+  resetPromptToDefault() {
+    if (confirm('确定要恢复为默认模板吗？\n当前的自定义内容将丢失。')) {
+      document.getElementById('prompt_template').value = Character.DEFAULT_PROMPT_TEMPLATE;
+    }
+  },
+
+  resetPromptTemplate() {
+    if (confirm('确定要删除自定义模板，恢复为默认设置吗？')) {
+      Storage.clearPromptTemplate();
+      const msg = '已恢复默认模板';
+      window.showToast ? showToast(msg) : alert(msg);
+      this.renderSettings();
     }
   },
 

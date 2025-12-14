@@ -1,34 +1,30 @@
 // 角色卡管理与提示词构建
 const Character = {
-  // 构建系统提示词
-  buildSystemPrompt(character, timeContext) {
-    const { world, character: char, connection } = character;
+  // 默认提示词模板（用户可在设置中自定义）
+  DEFAULT_PROMPT_TEMPLATE: `# 角色设定
 
-    let prompt = `# 角色设定
-
-你是「${character.name}」。
+你是「{{name}}」。
 
 ## 世界观
-${world.name ? `**${world.name}**\n` : ''}${world.description}
+{{world}}
 
 ## 你的背景
-${char.background}
+{{background}}
 
 ## 性格特点
-${char.personality}
+{{personality}}
 
 ## 说话风格
-${char.speechStyle}
+{{speechStyle}}
 
 ## 通讯媒介
-${connection.medium}
-${connection.mediumDescription || ''}
+{{medium}}
 
 ---
 
 # 互动规则
 
-1. 始终保持角色，你是${character.name}，不是AI助手
+1. 始终保持角色，你是{{name}}，不是AI助手
 2. 对话要自然，像真的在和一个人聊天
 3. 可以主动问问题，对对方的世界表示好奇
 4. 可以描述你周围的环境或正在做的事
@@ -45,7 +41,7 @@ ${connection.mediumDescription || ''}
 
 # 时间信息
 
-${timeContext.context}
+{{timeContext}}
 
 ---
 
@@ -139,7 +135,46 @@ ${timeContext.context}
 - **每条回复末尾都必须有 JSON 代码块**
 - 对方完全看不到这个代码块
 - 状态和主动联络让互动更真实自然
-`;
+`,
+
+  // 可用的占位符列表（用于帮助文档）
+  PLACEHOLDERS: {
+    '{{name}}': '角色名称',
+    '{{world}}': '世界观（包含名称和描述）',
+    '{{background}}': '角色背景',
+    '{{personality}}': '性格特点',
+    '{{speechStyle}}': '说话风格',
+    '{{medium}}': '通讯媒介（包含描述）',
+    '{{timeContext}}': '时间上下文（系统自动生成）'
+  },
+
+  // 构建系统提示词
+  buildSystemPrompt(character, timeContext) {
+    const { world, character: char, connection } = character;
+
+    // 获取用户自定义模板或使用默认模板
+    const customTemplate = Storage.getPromptTemplate();
+    const template = customTemplate || this.DEFAULT_PROMPT_TEMPLATE;
+
+    // 构建占位符替换映射
+    const worldText = (world.name ? `**${world.name}**\n` : '') + (world.description || '');
+    const mediumText = (connection.medium || '') + (connection.mediumDescription ? '\n' + connection.mediumDescription : '');
+
+    const replacements = {
+      '{{name}}': character.name || '未命名',
+      '{{world}}': worldText,
+      '{{background}}': char.background || '',
+      '{{personality}}': char.personality || '',
+      '{{speechStyle}}': char.speechStyle || '',
+      '{{medium}}': mediumText,
+      '{{timeContext}}': timeContext.context || ''
+    };
+
+    // 执行占位符替换
+    let prompt = template;
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      prompt = prompt.split(placeholder).join(value);
+    }
 
     return prompt;
   },

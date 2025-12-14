@@ -1122,6 +1122,36 @@ html, body {
   color: var(--text);
 }
 
+/* ============ 提示词编辑器 ============ */
+.prompt-editor {
+  width: 100%;
+  min-height: 400px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--text);
+  font-size: 0.9em;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.prompt-editor:focus {
+  border-color: var(--accent-dim);
+}
+
+.editor-section code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: var(--accent);
+}
+
 /* ============ 响应式 ============ */
 @media (max-width: 480px) {
   .select-header {
