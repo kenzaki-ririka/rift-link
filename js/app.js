@@ -1239,9 +1239,14 @@ const App = {
   showPromptEditor() {
     this.currentView = 'promptEditor';
     const currentTemplate = Storage.getPromptTemplate() || Character.DEFAULT_PROMPT_TEMPLATE;
+    const currentProactiveTemplate = Storage.getProactiveTemplate() || Character.DEFAULT_PROACTIVE_TEMPLATE;
 
     // 生成占位符说明
     const placeholderHelp = Object.entries(Character.PLACEHOLDERS)
+      .map(([key, desc]) => `<code>${key}</code> - ${desc}`)
+      .join('<br>');
+
+    const proactivePlaceholderHelp = Object.entries(Character.PROACTIVE_PLACEHOLDERS)
       .map(([key, desc]) => `<code>${key}</code> - ${desc}`)
       .join('<br>');
 
@@ -1252,25 +1257,36 @@ const App = {
           <h2>提示词模板</h2>
           <div class="editor-header-actions">
             <button onclick="App.showSettings()">取消</button>
-            <button onclick="App.savePromptTemplate()" class="primary">保存</button>
+            <button onclick="App.savePromptTemplates()" class="primary">保存</button>
           </div>
         </div>
         
         <div class="editor-content">
           <div class="editor-section">
-            <h3>可用占位符</h3>
+            <h3>系统提示词占位符</h3>
             <div class="hint" style="line-height: 1.8;">${placeholderHelp}</div>
           </div>
           
           <div class="editor-section">
-            <h3>模板内容</h3>
-            <div class="hint" style="margin-bottom: 12px;">这是发送给 AI 的系统提示词，定义角色如何扮演和互动</div>
-            <textarea id="prompt_template" class="prompt-editor" placeholder="提示词模板...">${this.escapeHtml(currentTemplate)}</textarea>
+            <h3>系统提示词模板</h3>
+            <div class="hint" style="margin-bottom: 12px;">定义角色如何扮演和互动的基础提示词</div>
+            <textarea id="prompt_template" class="prompt-editor" placeholder="系统提示词模板...">${this.escapeHtml(currentTemplate)}</textarea>
+            <div class="settings-buttons" style="margin-top: 12px;">
+              <button onclick="App.resetSystemPromptToDefault()">恢复默认</button>
+            </div>
           </div>
           
           <div class="editor-section">
-            <div class="settings-buttons">
-              <button onclick="App.resetPromptToDefault()">恢复为默认模板</button>
+            <h3>主动联络提示词占位符</h3>
+            <div class="hint" style="line-height: 1.8;">${proactivePlaceholderHelp}</div>
+          </div>
+          
+          <div class="editor-section">
+            <h3>主动联络提示词模板</h3>
+            <div class="hint" style="margin-bottom: 12px;">角色主动发消息时附加的提示词</div>
+            <textarea id="proactive_template" class="prompt-editor" style="min-height: 200px;" placeholder="主动联络提示词模板...">${this.escapeHtml(currentProactiveTemplate)}</textarea>
+            <div class="settings-buttons" style="margin-top: 12px;">
+              <button onclick="App.resetProactivePromptToDefault()">恢复默认</button>
             </div>
           </div>
         </div>
@@ -1278,25 +1294,47 @@ const App = {
     `;
   },
 
-  savePromptTemplate() {
+  savePromptTemplates() {
     const template = document.getElementById('prompt_template')?.value;
+    const proactiveTemplate = document.getElementById('proactive_template')?.value;
+
     if (template && template.trim()) {
       Storage.savePromptTemplate(template);
-      const msg = '提示词模板已保存';
-      window.showToast ? showToast(msg) : alert(msg);
     }
+    if (proactiveTemplate && proactiveTemplate.trim()) {
+      Storage.saveProactiveTemplate(proactiveTemplate);
+    }
+
+    const msg = '提示词模板已保存';
+    window.showToast ? showToast(msg) : alert(msg);
     this.showSettings();
   },
 
-  resetPromptToDefault() {
-    if (confirm('确定要恢复为默认模板吗？\n当前的自定义内容将丢失。')) {
+  resetSystemPromptToDefault() {
+    if (confirm('确定要恢复系统提示词为默认吗？')) {
       document.getElementById('prompt_template').value = Character.DEFAULT_PROMPT_TEMPLATE;
     }
   },
 
+  resetProactivePromptToDefault() {
+    if (confirm('确定要恢复主动联络提示词为默认吗？')) {
+      document.getElementById('proactive_template').value = Character.DEFAULT_PROACTIVE_TEMPLATE;
+    }
+  },
+
+  // 旧方法保留兼容
+  savePromptTemplate() {
+    this.savePromptTemplates();
+  },
+
+  resetPromptToDefault() {
+    this.resetSystemPromptToDefault();
+  },
+
   resetPromptTemplate() {
-    if (confirm('确定要删除自定义模板，恢复为默认设置吗？')) {
+    if (confirm('确定要删除所有自定义模板，恢复为默认设置吗？')) {
       Storage.clearPromptTemplate();
+      Storage.clearProactiveTemplate();
       const msg = '已恢复默认模板';
       window.showToast ? showToast(msg) : alert(msg);
       this.renderSettings();

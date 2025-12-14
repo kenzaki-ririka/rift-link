@@ -4,7 +4,8 @@ const Storage = {
     SETTINGS: 'rift_settings',
     CHANNELS: 'rift_channels',
     CURRENT_CHANNEL: 'rift_current_channel',
-    PROMPT_TEMPLATE: 'rift_prompt_template'
+    PROMPT_TEMPLATE: 'rift_prompt_template',
+    PROACTIVE_TEMPLATE: 'rift_proactive_template'
   },
 
   // 数据版本，用于迁移
@@ -100,6 +101,20 @@ const Storage = {
 
   clearPromptTemplate() {
     localStorage.removeItem(this.KEYS.PROMPT_TEMPLATE);
+  },
+
+  // ========== 主动联络提示词模板 ==========
+  getProactiveTemplate() {
+    const data = localStorage.getItem(this.KEYS.PROACTIVE_TEMPLATE);
+    return data ? JSON.parse(data) : null;
+  },
+
+  saveProactiveTemplate(template) {
+    localStorage.setItem(this.KEYS.PROACTIVE_TEMPLATE, JSON.stringify(template));
+  },
+
+  clearProactiveTemplate() {
+    localStorage.removeItem(this.KEYS.PROACTIVE_TEMPLATE);
   },
 
   // ========== 频道（角色）管理 ==========

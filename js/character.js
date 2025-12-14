@@ -179,18 +179,13 @@ const Character = {
     return prompt;
   },
 
-  // 构建主动联络时的提示词
-  buildProactivePrompt(character, timeContext, reason) {
-    const basePrompt = this.buildSystemPrompt(character, timeContext);
-
-    return basePrompt + `
-
----
+  // 默认主动联络提示词模板
+  DEFAULT_PROACTIVE_TEMPLATE: `---
 
 # 当前任务
 
 你想要主动联系对方。这不是回复，是你主动发起的消息。
-${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分享，或者单纯想聊聊。'}
+{{reason}}
 
 请生成一条自然的主动消息。可以是：
 - 如果是秒级回复，追加对话
@@ -200,7 +195,30 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
 - 发现了什么有趣的东西想告诉对方
 
 保持自然，不要太刻意。
-`;
+`,
+
+  // 主动联络占位符
+  PROACTIVE_PLACEHOLDERS: {
+    '{{reason}}': '主动联络的原因（系统自动生成）'
+  },
+
+  // 构建主动联络时的提示词
+  buildProactivePrompt(character, timeContext, reason) {
+    const basePrompt = this.buildSystemPrompt(character, timeContext);
+
+    // 获取自定义主动联络模板或使用默认
+    const customTemplate = Storage.getProactiveTemplate();
+    const template = customTemplate || this.DEFAULT_PROACTIVE_TEMPLATE;
+
+    // 构建 reason 文本
+    const reasonText = reason
+      ? `你想联系的原因：${reason}`
+      : '可能是想到了什么想分享，或者单纯想聊聊。';
+
+    // 替换占位符
+    const proactivePrompt = template.split('{{reason}}').join(reasonText);
+
+    return basePrompt + proactivePrompt;
   },
 
   // 解析AI回复中的主动联络标记（支持新旧两种格式）
