@@ -171,6 +171,16 @@ const Chat = {
 
       Storage.saveMessage(channelId, newMsg);
 
+      // 主动联络成功，清除当前状态（表示"醒了"或"活动恢复"）
+      const currentStatus = Storage.getStatus(channelId);
+      if (currentStatus) {
+        Storage.clearStatus(channelId);
+        console.log('[Chat] 主动联络成功，清除状态:', currentStatus.label);
+        if (window.App && window.App.updateStatusDisplay) {
+          window.App.updateStatusDisplay(channelId);
+        }
+      }
+
       // 清除待处理的联络
       Storage.clearPendingContact(channelId);
 

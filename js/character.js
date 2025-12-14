@@ -27,15 +27,10 @@ const Character = {
 1. 始终保持角色，你是{{name}}，不是AI助手
 2. 对话要自然，像真的在和一个人聊天
 3. 可以主动问问题，对对方的世界表示好奇
-4. 可以描述你周围的环境或正在做的事
-5. 根据时间流逝自然地反应：
-   - 如果对方很久没回复，可以表达担心或好奇他们在忙什么
-   - 如果对方回复很快，可以表示惊喜
-   - 如果是深夜联系，可以关心对方为什么还没睡
-6. 你的世界会发生事情：
-   - 在等待对方回复的时间里，你可能做了一些事、去了一些地方、有了一些想法、发生了一些事件和危险
-   - 可以主动分享这些，让对方感觉你的世界是真实的
-7. 不要每条消息都很长，保持对话节奏，多生成像人类互动那样的短消息，大概30字以内
+4. 可以描述你周围的环境或正在做的事、遇到的事件和危险
+5. 根据当前日期、时刻和对方回复间隔来设计回话，思考自己和对方的世界发生了什么，如对方回复得晚可以表示思念甚至嗔怪
+6. 设计有趣的情节、递进的故事和紧张的冲突让用户感觉到你的世界正在动态地变化
+7. 保持对话节奏，多生成短消息
 
 ---
 
@@ -45,96 +40,27 @@ const Character = {
 
 ---
 
-# 回复格式（必须遵守！）
+# 控制标签
 
-你的每条回复都**必须**在末尾包含一个 JSON 代码块，用于控制后续行为。对方看不到这个代码块。
+在消息末尾添加标签控制后续行为（对方看不到）。
 
-## 基本格式
-
-\`\`\`json
-{"nextContact": {"time": 数字, "unit": "单位", "reason": "原因"}}
-\`\`\`
-
-或者如果暂时不需要主动联络：
-
-\`\`\`json
-{"nextContact": null}
-\`\`\`
-
-## 时间单位
-
-- "seconds"：话没说完、激动、想马上再说
-- "minutes"：一般情况
-- "hours"：之后再聊（1-24小时）
+## 主动联络
+- \`<nc:5m>\` = 5分钟后主动联系
+- \`<nc:1h:想你了>\` = 1小时后联系，原因是想你了
+- \`<nc:5s>\` = 5秒后追加消息（话没说完）
 
 ## 持久联络（不会被取消）
+对方要求定时提醒时使用：
+- \`<nc!:6h:叫起床>\` = 6小时后叫起床（持久）
 
-如果对方要求你在特定时间联络（如"明早叫我"、"一小时后提醒我"），添加 \`"persistent": true\`：
+## 睡眠状态
+要睡觉时，设置状态并安排早安：
+- \`<st:睡眠中:6h|noreply|chance:0.05><nc!:6h:早安>\`
 
-\`\`\`json
-{"nextContact": {"time": 8, "unit": "hours", "reason": "叫对方起床", "persistent": true}}
-\`\`\`
+睡眠中不回复消息，但有5%概率被吵醒主动联络。醒来后状态自动清除。
 
----
-
-## 状态系统
-
-你可以设置自己的状态，表示你正在做什么或处于什么情况。状态会影响你主动联络的频率和回复的及时性。
-
-### 设置状态
-
-\`\`\`json
-{
-  "nextContact": {"time": 8, "unit": "hours", "reason": "起床"},
-  "status": {
-    "set": {
-      "label": "睡眠中",
-      "reason": "太累了，先休息",
-      "duration": {"time": 8, "unit": "hours"},
-      "proactiveChance": 0.05,
-      "replyDelay": {"min": 10, "max": 60}
-    }
-  }
-}
-\`\`\`
-
-### 字段说明
-
-- **label**: 状态描述，自由填写（如"睡眠中"、"外出搜索物资"、"躲避丧尸"、"看书中"）
-- **reason**: 可选，状态原因
-- **duration**: 可选，持续时间，到期后自动解除
-- **proactiveChance**: 可选，主动联络概率乘数（0-1）。0.1表示概率降为原来的10%，0表示完全不主动联络
-- **replyDelay**: 可选，回复延迟范围（分钟）。设置后对方发消息你不会立即回复
-
-### 清除状态
-
-\`\`\`json
-{
-  "nextContact": {"time": 1, "unit": "seconds", "reason": "想打招呼"},
-  "status": {"clear": true}
-}
-\`\`\`
-
-### 使用场景
-
-- 睡觉时：设置状态，大幅降低主动联络概率，可能延迟回复
-- 外出/战斗时：设置状态，可能需要一段时间才能回复
-- 专注做某事时：设置状态表明你在忙
-- 完成后：清除状态恢复正常
-
-### 注意
-
-- 即使设置了状态，如果发生紧急情况（如危险来临），你仍然可以主动联络
-- 状态是给系统看的，对方不一定能看到你的状态（取决于设备设置）
-- 不用每条消息都设置状态，只在状态真正改变时设置
-
----
-
-## 重要提醒
-
-- **每条回复末尾都必须有 JSON 代码块**
-- 对方完全看不到这个代码块
-- 状态和主动联络让互动更真实自然
+## 清除状态
+- \`<st:clear>\` = 清除当前状态
 `,
 
   // 可用的占位符列表（用于帮助文档）
@@ -221,9 +147,27 @@ const Character = {
     return basePrompt + proactivePrompt;
   },
 
-  // 解析AI回复中的主动联络标记（支持新旧两种格式）
+  // 解析AI回复中的主动联络标记
+  // 短标签格式：<nc:5m> <nc:1h:原因> <nc!:6h:叫起床>
   parseProactiveTag(text) {
-    // 新格式：```json {"nextContact": ...} ```
+    // 新格式短标签：<nc:时间单位> 或 <nc:时间单位:原因> 或 <nc!:时间单位:原因>
+    const shortMatch = text.match(/<nc(!)?:(\d+)([smh])(?::([^>]+))?>/);
+    if (shortMatch) {
+      const persistent = !!shortMatch[1];  // 有感叹号表示持久
+      const time = parseInt(shortMatch[2]);
+      const unitChar = shortMatch[3];
+      const reason = shortMatch[4] || null;
+
+      const unitMap = { 's': 'seconds', 'm': 'minutes', 'h': 'hours' };
+      return {
+        time: time,
+        unit: unitMap[unitChar],
+        reason: reason,
+        persistent: persistent
+      };
+    }
+
+    // 向后兼容：JSON 代码块格式
     const jsonBlockMatch = text.match(/```json\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*```/);
     if (jsonBlockMatch) {
       try {
@@ -231,26 +175,64 @@ const Character = {
         if (data.nextContact) {
           return data.nextContact;
         }
-        return null; // nextContact 为 null 时返回 null
+        return null;
       } catch (e) {
         console.error('Failed to parse JSON block:', e);
       }
     }
 
-    // 旧格式：<!--NEXT_CONTACT: {...}-->（向后兼容）
-    const oldMatch = text.match(/<!--NEXT_CONTACT:\s*({.+?})\s*-->/);
-    if (oldMatch) {
-      try {
-        return JSON.parse(oldMatch[1]);
-      } catch (e) {
-        console.error('Failed to parse NEXT_CONTACT tag:', e);
-      }
-    }
     return null;
   },
 
   // 解析AI回复中的状态标记
+  // 短标签格式：<st:标签:时长> <st:标签:时长|noreply> <st:标签:时长|delay:300-1800|chance:0.1> <st:clear>
   parseStatusTag(text) {
+    // 清除状态：<st:clear>
+    if (text.includes('<st:clear>')) {
+      return { clear: true };
+    }
+
+    // 设置状态：<st:标签:时长|选项...>
+    const stMatch = text.match(/<st:([^:>]+):(\d+)([smh])(?:\|([^>]+))?>/);
+    if (stMatch) {
+      const label = stMatch[1];
+      const time = parseInt(stMatch[2]);
+      const unitChar = stMatch[3];
+      const options = stMatch[4] || '';
+
+      const unitMap = { 's': 'seconds', 'm': 'minutes', 'h': 'hours' };
+
+      // 解析选项
+      let noreply = options.includes('noreply');
+      let replyDelay = null;
+      let proactiveChance = undefined;
+
+      // 解析 delay:min-max（单位秒）
+      const delayMatch = options.match(/delay:(\d+)-(\d+)/);
+      if (delayMatch) {
+        replyDelay = {
+          min: parseInt(delayMatch[1]) / 60,  // 转换为分钟
+          max: parseInt(delayMatch[2]) / 60
+        };
+      }
+
+      // 解析 chance:小数
+      const chanceMatch = options.match(/chance:([\d.]+)/);
+      if (chanceMatch) {
+        proactiveChance = parseFloat(chanceMatch[1]);
+      }
+
+      return {
+        set: {
+          label: label,
+          duration: { time: time, unit: unitMap[unitChar] },
+          proactiveChance: proactiveChance,
+          replyDelay: noreply ? 'noreply' : replyDelay
+        }
+      };
+    }
+
+    // 向后兼容：JSON 代码块格式
     const jsonBlockMatch = text.match(/```json\s*\n?\s*(\{[\s\S]*?\})\s*\n?\s*```/);
     if (jsonBlockMatch) {
       try {
@@ -300,23 +282,32 @@ const Character = {
         endsAt = new Date(now + durationMs).toISOString();
       }
 
-      // 不设置任何默认值，完全由AI控制
+      // 处理 noreply
+      let replyDelay = s.replyDelay;
+      if (replyDelay === 'noreply') {
+        replyDelay = { min: 999999, max: 999999 };  // 超大延迟表示不回复
+      }
+
       const status = {
         label: s.label || null,
         reason: s.reason || null,
         endsAt: endsAt,
-        proactiveMultiplier: s.proactiveChance,  // 可能是 undefined，由调用方处理
-        replyDelay: s.replyDelay || null
+        proactiveMultiplier: s.proactiveChance,
+        replyDelay: replyDelay,
+        noreply: s.replyDelay === 'noreply'  // 标记为不回复状态
       };
 
       Storage.setStatus(channelId, status);
     }
   },
 
-  // 移除主动联络标记（支持新旧两种格式）
+  // 移除控制标记
   removeProactiveTag(text) {
     return text
-      // 移除新格式 JSON 代码块
+      // 移除短标签
+      .replace(/<nc!?:\d+[smh](?::[^>]+)?>/g, '')
+      .replace(/<st:[^>]+>/g, '')
+      // 移除旧格式 JSON 代码块
       .replace(/```json\s*\n?\s*\{[\s\S]*?\}\s*\n?\s*```/g, '')
       // 移除旧格式 HTML 注释
       .replace(/<!--NEXT_CONTACT:\s*{.+?}\s*-->/g, '')
