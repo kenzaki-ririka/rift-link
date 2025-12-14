@@ -308,10 +308,10 @@ const Chat = {
       }
     }
 
-    // 解析并处理临时状态标记
-    const tempData = Character.parseTemporaryTag(reply);
-    if (tempData) {
-      Character.processTemporary(channelId, tempData);
+    // 解析并处理日程修改标记
+    const schActions = Character.parseSchTag(reply);
+    if (schActions) {
+      Character.processSchTag(channelId, schActions);
     }
 
     // 解析主动联络标记

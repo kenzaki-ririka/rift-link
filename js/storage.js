@@ -275,16 +275,6 @@ const Storage = {
 
     const schedule = channel.schedule;
 
-    // 临时状态优先
-    if (schedule.temporary) {
-      if (new Date(schedule.temporary.until) > new Date()) {
-        return schedule.temporary;
-      } else {
-        // 临时状态已过期，清除
-        this.clearTemporary(channelId);
-      }
-    }
-
     // 检查日程
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes();  // 转换为分钟
@@ -316,24 +306,6 @@ const Storage = {
     }
 
     return null;
-  },
-
-  setTemporary(channelId, temporary) {
-    const channel = this.getChannel(channelId);
-    if (!channel?.schedule) return;
-
-    channel.schedule.temporary = temporary;
-    this.saveChannel(channel);
-    console.log('[Storage] 设置临时状态:', temporary.label, '至', temporary.until);
-  },
-
-  clearTemporary(channelId) {
-    const channel = this.getChannel(channelId);
-    if (!channel?.schedule) return;
-
-    channel.schedule.temporary = null;
-    this.saveChannel(channel);
-    console.log('[Storage] 清除临时状态');
   },
 
   // ========== 主动联络状态 ==========

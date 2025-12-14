@@ -67,6 +67,13 @@ const Character = {
 - \`<temp:外出:2h|noreply>\` = 临时外出2小时，不回复
 - \`<temp:clear>\` = 清除临时状态，恢复日程
 
+## 修改日程（永久）
+- \`<sch:add:工作:09:00-18:00>\` = 添加工作日程
+- \`<sch:add:午休:12:00-13:00|noreply>\` = 添加午休（不回复）
+- \`<sch:remove:工作>\` = 删除工作日程
+- \`<sch:set:睡眠中:22:00-06:00>\` = 修改睡眠时间
+
+
 ---
 
 # 你的日程
@@ -353,49 +360,104 @@ const Character = {
     }
   },
 
-  // 解析临时状态标签：<temp:标签:时长|选项> 或 <temp:clear>
-  parseTemporaryTag(text) {
-    // 清除临时状态
-    if (text.includes('<temp:clear>')) {
-      return { clear: true };
+  // 解析日程修改标签：<sch:add:标签:时间> <sch:remove:标签> <sch:set:标签:时间>
+  parseSchTag(text) {
+    const results = [];
+
+    // 添加日程：<sch:add:标签:开始-结束|选项>
+    const addMatches = text.matchAll(/<sch:add:([^:>]+):(\d{1,2}:\d{2})-(\d{1,2}:\d{2})(?:\|([^>]+))?>/g);
+    for (const match of addMatches) {
+      results.push({
+        action: 'add',
+        label: match[1],
+        start: match[2],
+        end: match[3],
+        noreply: (match[4] || '').includes('noreply'),
+        chance: (match[4] || '').match(/chance:([\d.]+)/) ? parseFloat((match[4] || '').match(/chance:([\d.]+)/)[1]) : undefined
+      });
     }
 
-    // 设置临时状态：<temp:标签:时长|选项>
-    const tempMatch = text.match(/<temp:([^:>]+):(\d+)([smh])(?:\|([^>]+))?>/);
-    if (tempMatch) {
-      const label = tempMatch[1];
-      const time = parseInt(tempMatch[2]);
-      const unitChar = tempMatch[3];
-      const options = tempMatch[4] || '';
-
-      const unitMap = { 's': 1000, 'm': 60 * 1000, 'h': 60 * 60 * 1000 };
-      const until = new Date(Date.now() + time * unitMap[unitChar]).toISOString();
-
-      return {
-        set: {
-          label: label,
-          until: until,
-          noreply: options.includes('noreply'),
-          chance: options.match(/chance:([\d.]+)/) ? parseFloat(options.match(/chance:([\d.]+)/)[1]) : undefined
-        }
-      };
+    // 删除日程：<sch:remove:标签>
+    const removeMatches = text.matchAll(/<sch:remove:([^>]+)>/g);
+    for (const match of removeMatches) {
+      results.push({
+        action: 'remove',
+        label: match[1]
+      });
     }
 
-    return null;
+    // 修改日程：<sch:set:标签:开始-结束|选项>
+    const setMatches = text.matchAll(/<sch:set:([^:>]+):(\d{1,2}:\d{2})-(\d{1,2}:\d{2})(?:\|([^>]+))?>/g);
+    for (const match of setMatches) {
+      results.push({
+        action: 'set',
+        label: match[1],
+        start: match[2],
+        end: match[3],
+        noreply: (match[4] || '').includes('noreply'),
+        chance: (match[4] || '').match(/chance:([\d.]+)/) ? parseFloat((match[4] || '').match(/chance:([\d.]+)/)[1]) : undefined
+      });
+    }
+
+    return results.length > 0 ? results : null;
   },
 
-  // 处理临时状态
-  processTemporary(channelId, tempData) {
-    if (!tempData) return;
+  // 处理日程修改
+  processSchTag(channelId, actions) {
+    if (!actions || actions.length === 0) return;
 
-    if (tempData.clear) {
-      Storage.clearTemporary(channelId);
-      return;
+    const schedule = Storage.getSchedule(channelId);
+    if (!schedule) return;
+
+    for (const action of actions) {
+      switch (action.action) {
+        case 'add':
+          // 检查是否已存在同名日程
+          const existingAdd = schedule.routine.findIndex(s => s.label === action.label);
+          if (existingAdd === -1) {
+            schedule.routine.push({
+              start: action.start,
+              end: action.end,
+              label: action.label,
+              noreply: action.noreply,
+              chance: action.chance
+            });
+            console.log('[Schedule] 添加日程:', action.label);
+          }
+          break;
+
+        case 'remove':
+          const idx = schedule.routine.findIndex(s => s.label === action.label);
+          if (idx !== -1) {
+            schedule.routine.splice(idx, 1);
+            console.log('[Schedule] 删除日程:', action.label);
+          }
+          break;
+
+        case 'set':
+          // 修改现有日程或添加新的
+          const existingSet = schedule.routine.findIndex(s => s.label === action.label);
+          if (existingSet !== -1) {
+            schedule.routine[existingSet].start = action.start;
+            schedule.routine[existingSet].end = action.end;
+            if (action.noreply !== undefined) schedule.routine[existingSet].noreply = action.noreply;
+            if (action.chance !== undefined) schedule.routine[existingSet].chance = action.chance;
+            console.log('[Schedule] 修改日程:', action.label);
+          } else {
+            schedule.routine.push({
+              start: action.start,
+              end: action.end,
+              label: action.label,
+              noreply: action.noreply,
+              chance: action.chance
+            });
+            console.log('[Schedule] 添加日程:', action.label);
+          }
+          break;
+      }
     }
 
-    if (tempData.set) {
-      Storage.setTemporary(channelId, tempData.set);
-    }
+    Storage.saveSchedule(channelId, schedule);
   },
 
   // 移除控制标记
@@ -404,7 +466,7 @@ const Character = {
       // 移除短标签
       .replace(/<nc!?:\d+[smh](?::[^>]+)?>/g, '')
       .replace(/<st:[^>]+>/g, '')
-      .replace(/<temp:[^>]+>/g, '')
+      .replace(/<sch:[^>]+>/g, '')
       // 移除旧格式 JSON 代码块
       .replace(/```json\s*\n?\s*\{[\s\S]*?\}\s*\n?\s*```/g, '')
       // 移除旧格式 HTML 注释
