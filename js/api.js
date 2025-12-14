@@ -42,14 +42,24 @@ const API = {
       models: [],
       defaultModel: '',
       requiresEndpoint: true
+    },
+    test: {
+      name: '测试模式 (复读)',
+      models: [
+        { id: 'echo', name: '复读模式' }
+      ],
+      defaultModel: 'echo',
+      noApiKeyRequired: true
     }
   },
 
   // 发送消息到 AI
   async sendMessage(systemPrompt, messages, settings) {
     const { apiProvider, apiKey, apiModel, apiEndpoint } = settings;
-    
-    if (!apiKey) {
+
+    // 测试模式不需要 API Key
+    const provider = this.PROVIDERS[apiProvider];
+    if (!provider?.noApiKeyRequired && !apiKey) {
       throw new Error('请先在设置中配置 API Key');
     }
 
@@ -64,6 +74,8 @@ const API = {
         return this._sendOpenAI(systemPrompt, messages, apiKey, apiModel);
       case 'openai_compatible':
         return this._sendOpenAICompatible(systemPrompt, messages, apiKey, apiModel, apiEndpoint);
+      case 'test':
+        return this._sendTest(messages);
       default:
         throw new Error('不支持的 API 提供商');
     }
@@ -132,10 +144,10 @@ const API = {
   async _sendGemini(systemPrompt, messages, apiKey, model) {
     const modelId = model || 'gemini-2.5-flash-preview-05-20';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-    
+
     // 转换消息格式
     const contents = [];
-    
+
     // Gemini 需要把 system prompt 作为第一条消息或者用 systemInstruction
     for (const m of messages) {
       contents.push({
@@ -231,6 +243,16 @@ const API = {
     return data.choices[0].message.content;
   },
 
+  // 测试模式 - 复读用户消息
+  _sendTest(messages) {
+    // 获取最后一条用户消息并复读
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (lastUserMessage) {
+      return Promise.resolve(lastUserMessage.content);
+    }
+    return Promise.resolve('[测试模式] 没有收到用户消息');
+  },
+
   // 生成角色卡
   async generateCharacter(prompt, settings) {
     const systemPrompt = `你是一个角色设计师，专门为沉浸式聊天应用创建角色。
@@ -275,25 +297,25 @@ const API = {
     ];
 
     const response = await this.sendMessage(systemPrompt, messages, settings);
-    
+
     // 解析JSON
     try {
       // 尝试直接解析
       let jsonStr = response.trim();
-      
+
       // 如果被markdown包裹，提取JSON
       const jsonMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
       if (jsonMatch) {
         jsonStr = jsonMatch[1].trim();
       }
-      
+
       const character = JSON.parse(jsonStr);
-      
+
       // 验证必要字段
       if (!character.name || !character.connection?.firstMessage) {
         throw new Error('生成的角色缺少必要字段');
       }
-      
+
       // 确保proactiveContact有默认值
       character.proactiveContact = character.proactiveContact || {
         enabled: true,
@@ -301,7 +323,7 @@ const API = {
         checkIntervalMinutes: 15,
         replyDelayMinutes: { min: 0, max: 10 }
       };
-      
+
       return character;
     } catch (e) {
       console.error('Parse character JSON error:', e, response);

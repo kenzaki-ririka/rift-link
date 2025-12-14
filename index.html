@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +10,7 @@
   <meta name="theme-color" content="#0a0a0a">
   <link rel="apple-touch-icon" href="icon-192.svg">
 </head>
+
 <body>
   <div id="app">
     <!-- 页面由 JS 动态渲染 -->
@@ -21,7 +23,7 @@
   <script src="js/character.js"></script>
   <script src="js/chat.js"></script>
   <script src="js/app.js"></script>
-  
+
   <!-- 注册 Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
@@ -30,5 +32,34 @@
         .catch(err => console.log('Service Worker 注册失败:', err));
     }
   </script>
+
+  <!-- Capacitor Toast 工具（安卓原生 Toast） -->
+  <script type="module">
+    import { Toast } from 'https://esm.sh/@capacitor/toast@6';
+    import { Capacitor } from 'https://esm.sh/@capacitor/core@6';
+
+    // 全局 Toast 工具函数
+    window.showToast = async function (message) {
+      // 检测是否在原生 App 环境
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await Toast.show({
+            text: message,
+            duration: 'long',  // 'short' 或 'long'
+            position: 'bottom'
+          });
+        } catch (e) {
+          console.error('Toast error:', e);
+          alert(message);
+        }
+      } else {
+        // 浏览器环境使用 alert
+        alert(message);
+      }
+    };
+
+    console.log('[Toast] 已初始化，平台:', Capacitor.getPlatform());
+  </script>
 </body>
+
 </html>

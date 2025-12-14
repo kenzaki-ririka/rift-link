@@ -3,7 +3,7 @@ const Character = {
   // 构建系统提示词
   buildSystemPrompt(character, timeContext) {
     const { world, character: char, connection } = character;
-    
+
     let prompt = `# 角色设定
 
 你是「${character.name}」。
@@ -147,7 +147,7 @@ ${timeContext.context}
   // 构建主动联络时的提示词
   buildProactivePrompt(character, timeContext, reason) {
     const basePrompt = this.buildSystemPrompt(character, timeContext);
-    
+
     return basePrompt + `
 
 ---
@@ -224,7 +224,7 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
 
     if (statusData.set) {
       const s = statusData.set;
-      
+
       // 计算结束时间
       let endsAt = null;
       if (s.duration) {
@@ -270,31 +270,18 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
       .trim();
   },
 
-  // 初始化预设角色到存储
+  // 初始化预设角色数据（仅加载，不自动添加到首页）
   async initPresets() {
-    // 加载预设角色 JSON 文件
+    // 加载预设角色 JSON 文件（供用户在创建新连接时选择）
     await PresetLoader.loadAll();
     PRESET_CHARACTERS = PresetLoader.getAll();
-    
-    const channels = Storage.getChannels();
-    
-    // 检查预设角色是否已存在
-    for (const [id, preset] of Object.entries(PRESET_CHARACTERS)) {
-      if (!channels[id]) {
-        // 复制预设角色
-        channels[id] = JSON.parse(JSON.stringify(preset));
-        channels[id].messages = [];
-        channels[id].createdAt = new Date().toISOString();
-      }
-    }
-    
-    Storage.saveChannels(channels);
+    // 预设不再自动添加到首页，用户可通过"创建新连接 → 从预设选择"来导入
   },
 
   // 验证角色卡完整性
   validateCharacter(character) {
     const errors = [];
-    
+
     if (!character.name?.trim()) {
       errors.push('请填写角色名称');
     }
@@ -304,7 +291,7 @@ ${reason ? `你想联系的原因：${reason}` : '可能是想到了什么想分
     if (!character.connection?.firstMessage?.trim()) {
       errors.push('请填写第一条消息');
     }
-    
+
     return errors;
   }
 };

@@ -17,7 +17,7 @@ const App = {
 
     // 检查URL参数
     const path = window.location.hash.slice(1) || '';
-    
+
     if (path === 'select') {
       // 明确要求显示选择界面
       this.showSelect();
@@ -68,27 +68,27 @@ const App = {
   checkUrlParams() {
     const params = new URLSearchParams(location.search);
     const apiKey = params.get('key') || params.get('apiKey');
-    
+
     if (apiKey) {
       const settings = Storage.getSettings();
       settings.apiKey = apiKey;
-      
+
       // 检查provider参数
       const provider = params.get('provider');
       if (provider && API.PROVIDERS[provider]) {
         settings.apiProvider = provider;
         settings.apiModel = API.PROVIDERS[provider].defaultModel;
       }
-      
+
       // 检查model参数
       const model = params.get('model');
       if (model) {
         settings.apiModel = model;
       }
-      
+
       Storage.saveSettings(settings);
       console.log('[App] API设置已通过URL参数更新:', settings.apiProvider, settings.apiModel);
-      
+
       // 清除URL参数（安全考虑，不让key留在地址栏）
       history.replaceState(null, '', location.pathname + location.hash);
     }
@@ -178,10 +178,10 @@ const App = {
     this.currentView = 'chat';
     this.currentChannelId = channelId;
     Storage.setCurrentChannelId(channelId);
-    
+
     // 初始化聊天
     await Chat.init(channelId);
-    
+
     this.renderChat(channelId);
   },
 
@@ -247,7 +247,7 @@ const App = {
 
     // 滚动到底部
     this.scrollToBottom();
-    
+
     // 聚焦输入框
     document.getElementById('messageInput')?.focus();
   },
@@ -257,12 +257,12 @@ const App = {
     const now = new Date();
     const end = new Date(endsAt);
     const diffMs = end - now;
-    
+
     if (diffMs <= 0) return '';
-    
+
     const diffMinutes = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMinutes / 60);
-    
+
     if (diffHours >= 1) {
       const mins = diffMinutes % 60;
       return `约 ${diffHours}小时${mins > 0 ? mins + '分钟' : ''}`;
@@ -273,31 +273,31 @@ const App = {
   // 更新状态显示
   updateStatusDisplay(channelId) {
     if (this.currentChannelId !== channelId) return;
-    
+
     const channel = Storage.getChannel(channelId);
     const status = Storage.getStatus(channelId);
     const existingStatus = document.getElementById('chatStatus');
-    
+
     // 如果角色卡未启用状态显示，不显示
     if (!channel?.statusDisplay?.enabled || !status) {
       existingStatus?.remove();
       return;
     }
-    
+
     // 更新或添加状态显示
     const timeLeft = status.endsAt ? this.formatTimeRemaining(status.endsAt) : '';
     const displayLabel = status.label || channel.statusDisplay?.defaultLabel || '';
-    
+
     if (!displayLabel) {
       existingStatus?.remove();
       return;
     }
-    
+
     const statusHtml = `<div class="chat-status" id="chatStatus" style="${channel.statusDisplay?.style || ''}">
       <span class="status-label">${displayLabel}</span>
       ${timeLeft && channel.statusDisplay?.showTime ? `<span class="status-time">${timeLeft}</span>` : ''}
     </div>`;
-    
+
     if (existingStatus) {
       existingStatus.outerHTML = statusHtml;
     } else {
@@ -320,7 +320,7 @@ const App = {
         </button>
       </div>
     ` : '';
-    
+
     return `
       <div class="message ${msg.role}${failedClass}" id="${msg.id || ''}" data-content="${msg.role === 'user' ? this.escapeHtml(msg.content).replace(/"/g, '&quot;') : ''}">
         <div class="message-time">${timeStr}</div>
@@ -350,7 +350,7 @@ const App = {
   async sendMessage() {
     const input = document.getElementById('messageInput');
     const content = input?.value?.trim();
-    
+
     if (!content || !this.currentChannelId) return;
 
     // 清空输入框（但不禁用，用户可以继续输入）
@@ -375,14 +375,14 @@ const App = {
 
     // 异步发送，不阻塞用户继续输入
     const channelId = this.currentChannelId;
-    
+
     try {
       // 传递 msgId 给 Chat，确保存储和UI使用同一个ID
       const reply = await Chat.sendMessage(channelId, content, msgId);
-      
+
       // 确保还在同一个频道
       if (this.currentChannelId !== channelId) return;
-      
+
       // 检查是否是延迟回复
       if (reply && reply.delayed) {
         // 延迟回复：静默处理，回复会在延迟后自动出现
@@ -391,17 +391,17 @@ const App = {
         // 正常回复：显示回复
         messagesContainer.insertAdjacentHTML('beforeend', this.renderMessage(reply));
         this.scrollToBottom();
-        
+
         // 更新状态显示
         this.updateStatusDisplay(channelId);
       }
 
     } catch (error) {
       console.error('Send message error:', error);
-      
+
       // 确保还在同一个频道
       if (this.currentChannelId !== channelId) return;
-      
+
       // 标记消息发送失败（同时更新存储）
       this.markMessageFailed(msgId, channelId);
     }
@@ -411,10 +411,10 @@ const App = {
   markMessageFailed(msgId, channelId) {
     const msgElement = document.getElementById(msgId);
     if (!msgElement) return;
-    
+
     // 更新UI
     msgElement.classList.add('failed');
-    
+
     // 添加失败标记（如果还没有）
     if (!msgElement.querySelector('.message-failed')) {
       const failedIndicator = document.createElement('div');
@@ -428,7 +428,7 @@ const App = {
       `;
       msgElement.appendChild(failedIndicator);
     }
-    
+
     // 更新存储中的消息状态
     Storage.updateMessage(channelId, msgId, { failed: true });
   },
@@ -437,14 +437,14 @@ const App = {
   showFailedOptions(msgId) {
     const msgElement = document.getElementById(msgId);
     if (!msgElement) return;
-    
+
     // 如果已经有菜单，移除它
     const existingMenu = msgElement.querySelector('.failed-menu');
     if (existingMenu) {
       existingMenu.remove();
       return;
     }
-    
+
     const menu = document.createElement('div');
     menu.className = 'failed-menu';
     menu.innerHTML = `
@@ -452,7 +452,7 @@ const App = {
       <button onclick="App.deleteFailedMessage('${msgId}')">删除</button>
     `;
     msgElement.appendChild(menu);
-    
+
     // 点击其他地方关闭菜单
     const closeMenu = (e) => {
       if (!menu.contains(e.target) && !e.target.closest('.failed-btn')) {
@@ -467,28 +467,28 @@ const App = {
   async retryMessage(msgId) {
     const msgElement = document.getElementById(msgId);
     if (!msgElement) return;
-    
+
     const content = msgElement.dataset.content;
     if (!content) return;
-    
+
     const channelId = this.currentChannelId;
-    
+
     // 移除失败状态和菜单
     msgElement.classList.remove('failed');
     msgElement.querySelector('.message-failed')?.remove();
     msgElement.querySelector('.failed-menu')?.remove();
-    
+
     // 更新存储中的失败状态
     Storage.updateMessage(channelId, msgId, { failed: false });
-    
+
     const messagesContainer = document.getElementById('messages');
-    
+
     try {
       // 重试时不保存消息（已经存储过了），只获取AI回复
       const reply = await Chat.getReplyOnly(channelId, content);
-      
+
       if (this.currentChannelId !== channelId) return;
-      
+
       if (reply && reply.delayed) {
         console.log(`[App] 回复将延迟 ${reply.delayMinutes} 分钟`);
       } else if (reply) {
@@ -507,15 +507,15 @@ const App = {
   deleteFailedMessage(msgId) {
     const msgElement = document.getElementById(msgId);
     if (!msgElement) return;
-    
+
     // 关闭菜单
     msgElement.querySelector('.failed-menu')?.remove();
-    
+
     // 从存储中删除
     if (this.currentChannelId) {
       Storage.deleteMessage(this.currentChannelId, msgId);
     }
-    
+
     // 从UI移除
     msgElement.remove();
   },
@@ -682,18 +682,18 @@ const App = {
     channel.name = document.getElementById('ed_name').value.trim();
     channel.avatar = document.getElementById('ed_avatar').value.trim() || '💬';
     channel.tagline = document.getElementById('ed_tagline').value.trim();
-    
+
     channel.world = {
       name: document.getElementById('ed_worldName').value.trim(),
       description: document.getElementById('ed_worldDesc').value.trim()
     };
-    
+
     channel.character = {
       background: document.getElementById('ed_background').value.trim(),
       personality: document.getElementById('ed_personality').value.trim(),
       speechStyle: document.getElementById('ed_speechStyle').value.trim()
     };
-    
+
     channel.connection = {
       medium: document.getElementById('ed_medium').value.trim(),
       mediumDescription: document.getElementById('ed_mediumDesc').value.trim(),
@@ -739,7 +739,7 @@ const App = {
   cancelEditor() {
     // 清理生成的角色数据
     this.editingGeneratedChannel = null;
-    
+
     if (this.currentChannelId) {
       this.showChat(this.currentChannelId);
     } else {
@@ -765,7 +765,7 @@ const App = {
   showCreateOptions() {
     this.currentView = 'createOptions';
     const app = document.getElementById('app');
-    
+
     app.innerHTML = `
       <div class="create-options-screen">
         <div class="create-options-header">
@@ -774,14 +774,6 @@ const App = {
         </div>
         
         <div class="create-options-list">
-          <div class="create-option" onclick="App.showPresets()">
-            <div class="create-option-icon">📚</div>
-            <div class="create-option-info">
-              <div class="create-option-title">从预设选择</div>
-              <div class="create-option-desc">浏览预设的角色模板</div>
-            </div>
-          </div>
-          
           <div class="create-option" onclick="App.showGenerator()">
             <div class="create-option-icon">✨</div>
             <div class="create-option-info">
@@ -805,6 +797,14 @@ const App = {
               <div class="create-option-desc">从零开始填写角色信息</div>
             </div>
           </div>
+          
+          <div class="create-option" onclick="App.showPresets()">
+            <div class="create-option-icon">📚</div>
+            <div class="create-option-info">
+              <div class="create-option-title">从预设选择</div>
+              <div class="create-option-desc">浏览预设的角色模板</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -814,7 +814,7 @@ const App = {
   async showPresets() {
     this.currentView = 'presets';
     const app = document.getElementById('app');
-    
+
     app.innerHTML = `
       <div class="presets-screen">
         <div class="presets-header">
@@ -824,11 +824,11 @@ const App = {
         <div class="presets-loading">加载中...</div>
       </div>
     `;
-    
+
     try {
       const response = await fetch('data/presets/index.json');
       const presetIndex = await response.json();
-      
+
       const presetsHtml = presetIndex.presets.map(preset => `
         <div class="preset-card" onclick="App.loadPreset('${preset.id}')">
           <div class="preset-avatar">${preset.avatar}</div>
@@ -838,7 +838,7 @@ const App = {
           </div>
         </div>
       `).join('');
-      
+
       app.innerHTML = `
         <div class="presets-screen">
           <div class="presets-header">
@@ -869,12 +869,12 @@ const App = {
     try {
       const response = await fetch(`data/presets/${presetId}.json`);
       const presetData = await response.json();
-      
+
       const channel = presetData.channel;
       channel.id = 'ch_' + Date.now();
       channel.isPreset = false;
       channel.messages = [];
-      
+
       Storage.saveChannel(channel);
       this.showChat(channel.id);
     } catch (error) {
@@ -887,7 +887,7 @@ const App = {
   showGenerator() {
     this.currentView = 'generator';
     const app = document.getElementById('app');
-    
+
     app.innerHTML = `
       <div class="generator-screen">
         <div class="generator-header">
@@ -922,12 +922,12 @@ const App = {
   async generateCharacter() {
     const promptInput = document.getElementById('gen_prompt');
     const prompt = promptInput?.value?.trim();
-    
+
     if (!prompt) {
       alert('请输入角色描述');
       return;
     }
-    
+
     await this.doGenerate(prompt);
   },
 
@@ -946,7 +946,7 @@ const App = {
       "正在缓慢消亡的异世界",
       "只有她一人的梦境边缘"
     ];
-    
+
     const situations = [
       "独自生存已久",
       "被困在某处无法离开",
@@ -959,7 +959,7 @@ const App = {
       "等待着某件事发生",
       "刚刚意识到世界的真相"
     ];
-    
+
     const traits = [
       "表面开朗但内心孤独",
       "看似冷淡实则温柔",
@@ -970,19 +970,19 @@ const App = {
       "天然呆却意外敏锐",
       "成熟稳重却渴望依赖"
     ];
-    
+
     const world = worldTypes[Math.floor(Math.random() * worldTypes.length)];
     const situation = situations[Math.floor(Math.random() * situations.length)];
     const trait = traits[Math.floor(Math.random() * traits.length)];
-    
+
     const randomPrompt = `${world}，${situation}的角色。性格${trait}。`;
-    
+
     // 如果在生成器界面，填入描述框
     const promptInput = document.getElementById('gen_prompt');
     if (promptInput) {
       promptInput.value = randomPrompt;
     }
-    
+
     await this.doGenerate(randomPrompt);
   },
 
@@ -990,7 +990,7 @@ const App = {
   async doGenerate(prompt) {
     const genBtn = document.getElementById('gen_btn');
     const resultDiv = document.getElementById('gen_result');
-    
+
     // 如果不在生成器界面，先跳转
     if (!resultDiv) {
       this.showGenerator();
@@ -1000,7 +1000,7 @@ const App = {
       await new Promise(r => setTimeout(r, 100));
       return this.doGenerate(prompt);
     }
-    
+
     // 显示loading
     if (genBtn) {
       genBtn.disabled = true;
@@ -1013,14 +1013,14 @@ const App = {
         <div>正在生成角色...</div>
       </div>
     `;
-    
+
     try {
       const settings = Storage.getSettings();
       const character = await API.generateCharacter(prompt, settings);
-      
+
       // 保存生成的角色数据供后续使用
       this.generatedCharacter = character;
-      
+
       // 显示预览
       resultDiv.innerHTML = `
         <div class="generator-preview">
@@ -1060,7 +1060,7 @@ const App = {
         </div>
       `;
     }
-    
+
     if (genBtn) {
       genBtn.disabled = false;
       genBtn.textContent = '✨ 生成角色';
@@ -1070,13 +1070,13 @@ const App = {
   // 使用生成的角色
   useGeneratedCharacter() {
     if (!this.generatedCharacter) return;
-    
+
     const channel = {
       id: 'ch_' + Date.now(),
       ...this.generatedCharacter,
       messages: []
     };
-    
+
     Storage.saveChannel(channel);
     this.generatedCharacter = null;
     this.showChat(channel.id);
@@ -1085,13 +1085,13 @@ const App = {
   // 编辑生成的角色
   editGeneratedCharacter() {
     if (!this.generatedCharacter) return;
-    
+
     const channel = {
       id: 'new_generated',
       ...this.generatedCharacter,
       messages: []
     };
-    
+
     this.editingGeneratedChannel = channel;
     this.currentView = 'editor';
     this.editingChannelId = 'new_generated';
@@ -1182,7 +1182,7 @@ const App = {
     if (!providerInfo || providerInfo.models.length === 0) {
       return '<option value="">请手动输入模型名称</option>';
     }
-    
+
     return providerInfo.models.map(model => `
       <option value="${model.id}" ${currentModel === model.id ? 'selected' : ''}>
         ${model.name}
@@ -1194,12 +1194,12 @@ const App = {
     const provider = document.getElementById('set_provider').value;
     const modelSelect = document.getElementById('set_model');
     const endpointRow = document.getElementById('endpointRow');
-    
+
     modelSelect.innerHTML = this.renderModelOptions(provider, '');
-    
+
     // 显示/隐藏端点输入
     endpointRow.style.display = provider === 'openai_compatible' ? 'block' : 'none';
-    
+
     // 保存更改
     this.saveSettings();
   },
@@ -1217,7 +1217,7 @@ const App = {
 
   closeSettings() {
     this.saveSettings();
-    
+
     if (this.currentChannelId) {
       this.showChat(this.currentChannelId);
     } else {
@@ -1230,20 +1230,28 @@ const App = {
     const data = Storage.exportAll();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
+    const filename = `rift-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rift-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
-    
+
     URL.revokeObjectURL(url);
+
+    // 给用户反馈（安卓用 Toast，浏览器用 alert）
+    if (window.showToast) {
+      showToast(`已导出: ${filename}`);
+    } else {
+      alert(`导出成功！\n文件名：${filename}`);
+    }
   },
 
   importAll() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    
+
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -1251,7 +1259,7 @@ const App = {
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        
+
         if (data.type === 'channel') {
           // 这是角色卡文件
           const channel = Storage.importChannel(data);
@@ -1274,24 +1282,36 @@ const App = {
 
   exportChannel(channelId) {
     const data = Storage.exportChannel(channelId);
-    if (!data) return;
+    if (!data) {
+      const msg = '导出失败：找不到该角色';
+      window.showToast ? showToast(msg) : alert(msg);
+      return;
+    }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
+    const filename = `rift-character-${data.channel.name || 'unknown'}.json`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rift-character-${data.channel.name || 'unknown'}.json`;
+    a.download = filename;
     a.click();
-    
+
     URL.revokeObjectURL(url);
+
+    // 给用户反馈（安卓用 Toast，浏览器用 alert）
+    if (window.showToast) {
+      showToast(`已导出: ${filename}`);
+    } else {
+      alert(`导出成功！\n文件名：${filename}`);
+    }
   },
 
   importChannel() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    
+
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;

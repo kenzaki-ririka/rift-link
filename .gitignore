@@ -4,14 +4,12 @@ node_modules/
 # Capacitor - 构建产物
 www/
 
-# Android
-android/
+# Android - 只忽略构建产物和本地配置（源代码纳入 Git）
 android/.gradle/
 android/app/build/
 android/build/
 android/capacitor-cordova-android-plugins/build/
 android/.idea/
-android/*.iml
 android/local.properties
 android/app/src/main/assets/public/
 
