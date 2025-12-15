@@ -6,27 +6,27 @@ export const API = {
     claude: {
       name: 'Claude (Anthropic)',
       models: [
-        { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
-        { id: 'claude-opus-4-0-20250514', name: 'Claude Opus 4' },
-        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' }
+        { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5' },
+        { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5' },
+        { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
+        { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' }
       ],
-      defaultModel: 'claude-sonnet-4-20250514',
+      defaultModel: 'claude-sonnet-4-5-20250929',
       supportsTools: true
     },
     deepseek: {
       name: 'DeepSeek',
       models: [
-        { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+        { id: 'deepseek-chat', name: 'DeepSeek V3.2' },
         { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }
       ],
       defaultModel: 'deepseek-chat',
-      supportsTools: false  // DeepSeek 工具调用支持有限
+      supportsTools: true  // V3.2 支持工具调用
     },
     gemini: {
       name: 'Gemini (Google)',
       models: [
-
+        { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Preview)' },
         { id: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash' },
         { id: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro' },
         { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' }
@@ -37,11 +37,12 @@ export const API = {
     openai: {
       name: 'OpenAI',
       models: [
-        { id: 'gpt-4o', name: 'GPT-4o' },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
+        { id: 'gpt-5.2', name: 'GPT-5.2 Thinking' },
+        { id: 'gpt-5.2-chat-latest', name: 'GPT-5.2 Instant' },
+        { id: 'gpt-5.1', name: 'GPT-5.1' },
+        { id: 'gpt-4o', name: 'GPT-4o' }
       ],
-      defaultModel: 'gpt-4o',
+      defaultModel: 'gpt-5.2-chat-latest',
       supportsTools: true
     },
     openai_compatible: {
