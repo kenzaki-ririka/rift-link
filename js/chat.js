@@ -135,8 +135,17 @@ export const Chat = {
       statusContext = `\n\n# 你当前的状态\n\n你目前处于「${status.label}」状态。${status.reason ? `原因：${status.reason}` : ''}\n如果状态结束了，记得在回复中清除状态。`;
     }
 
+    // 检查是否启用工具
+    const providerConfig = API.PROVIDERS[settings.apiProvider];
+    const useTools = providerConfig?.supportsTools || false;
+
     // 构建提示词（传入 reason）
     const systemPrompt = Character.buildProactivePrompt(channel, timeContext, reason) + statusContext;
+    
+    let fullSystemPrompt = systemPrompt;
+    if (useTools) {
+       fullSystemPrompt += '\n\nIMPORTANT: Use the provided tools (schedule_contact, manage_status, manage_schedule) to manage your state and contact plans. Do not use XML tags like <nc:...> or <st:...> in your response text.';
+    }
 
     // 准备消息历史
     const historyLimit = settings.historyLimit || 20;
@@ -152,7 +161,7 @@ export const Chat = {
     });
 
     try {
-      let reply = await API.sendMessage(systemPrompt, recentMessages, settings);
+      let reply = await API.sendMessage(fullSystemPrompt, recentMessages, settings, channelId);
 
       // 解析并处理状态标记
       const statusData = Character.parseStatusTag(reply);

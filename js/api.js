@@ -1,8 +1,11 @@
+import { Tools } from './tools.js';
+
 // AI API 调用模块
 export const API = {
   PROVIDERS: {
     claude: {
       name: 'Claude (Anthropic)',
+      supportsTools: true,
       models: [
         { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
         { id: 'claude-opus-4-0-20250514', name: 'Claude Opus 4' },
@@ -13,6 +16,7 @@ export const API = {
     },
     deepseek: {
       name: 'DeepSeek',
+      supportsTools: true,
       models: [
         { id: 'deepseek-chat', name: 'DeepSeek Chat' },
         { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }
@@ -31,6 +35,7 @@ export const API = {
     },
     openai: {
       name: 'OpenAI',
+      supportsTools: true,
       models: [
         { id: 'gpt-4o', name: 'GPT-4o' },
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
@@ -55,35 +60,114 @@ export const API = {
   },
 
   // 发送消息到 AI
-  async sendMessage(systemPrompt, messages, settings) {
+  async sendMessage(systemPrompt, messages, settings, channelId = null) {
     const { apiProvider, apiKey, apiModel, apiEndpoint } = settings;
 
     // 测试模式不需要 API Key
-    const provider = this.PROVIDERS[apiProvider];
-    if (!provider?.noApiKeyRequired && !apiKey) {
+    const providerConfig = this.PROVIDERS[apiProvider];
+    if (!providerConfig?.noApiKeyRequired && !apiKey) {
       throw new Error('请先在设置中配置 API Key');
     }
 
-    switch (apiProvider) {
-      case 'claude':
-        return this._sendClaude(systemPrompt, messages, apiKey, apiModel);
-      case 'deepseek':
-        return this._sendDeepSeek(systemPrompt, messages, apiKey, apiModel);
-      case 'gemini':
-        return this._sendGemini(systemPrompt, messages, apiKey, apiModel);
-      case 'openai':
-        return this._sendOpenAI(systemPrompt, messages, apiKey, apiModel);
-      case 'openai_compatible':
-        return this._sendOpenAICompatible(systemPrompt, messages, apiKey, apiModel, apiEndpoint);
-      case 'test':
-        return this._sendTest(messages);
-      default:
-        throw new Error('不支持的 API 提供商');
+    // 检查是否启用工具
+    const useTools = providerConfig.supportsTools && channelId;
+    let currentMessages = [...messages];
+    let turnCount = 0;
+    const MAX_TURNS = 5;
+
+    while (turnCount < MAX_TURNS) {
+      turnCount++;
+      let response;
+
+      switch (apiProvider) {
+        case 'claude':
+          response = await this._sendClaude(systemPrompt, currentMessages, apiKey, apiModel, useTools);
+          break;
+        case 'deepseek':
+          response = await this._sendDeepSeek(systemPrompt, currentMessages, apiKey, apiModel, useTools);
+          break;
+        case 'gemini':
+          // Gemini 暂未实现工具调用
+          response = await this._sendGemini(systemPrompt, currentMessages, apiKey, apiModel);
+          break;
+        case 'openai':
+          response = await this._sendOpenAI(systemPrompt, currentMessages, apiKey, apiModel, useTools);
+          break;
+        case 'openai_compatible':
+          response = await this._sendOpenAICompatible(systemPrompt, currentMessages, apiKey, apiModel, apiEndpoint);
+          break;
+        case 'test':
+          response = { content: await this._sendTest(currentMessages) };
+          break;
+        default:
+          throw new Error('不支持的 API 提供商');
+      }
+
+      // 检查是否有工具调用
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        console.log('[API] Received tool calls:', response.tool_calls);
+        
+        // 1. 将 assistant 消息（包含 tool_calls）添加到历史
+        currentMessages.push(response.rawMessage);
+
+        // 2. 执行工具并添加 tool 消息
+        for (const call of response.tool_calls) {
+          const result = await Tools.execute(channelId, call.name, call.args);
+          
+          // 根据不同提供商构建 tool 消息
+          if (apiProvider === 'claude') {
+             currentMessages.push({
+               role: 'user',
+               content: [
+                 {
+                   type: 'tool_result',
+                   tool_use_id: call.id,
+                   content: result
+                 }
+               ]
+             });
+          } else {
+             // OpenAI / DeepSeek format
+             currentMessages.push({
+               role: 'tool',
+               tool_call_id: call.id,
+               content: result
+             });
+          }
+        }
+        
+        // 继续循环，再次调用 API
+        continue;
+      }
+
+      // 如果没有工具调用，返回内容
+      return response.content;
     }
+
+    throw new Error('Tool execution loop exceeded max turns');
   },
 
   // Claude API
-  async _sendClaude(systemPrompt, messages, apiKey, model) {
+  async _sendClaude(systemPrompt, messages, apiKey, model, useTools = false) {
+    const body = {
+      model: model || 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: messages.map(m => {
+        // Claude 特殊处理：如果 content 是数组（包含 tool_use/result），直接透传
+        if (Array.isArray(m.content)) return m;
+        return { role: m.role, content: m.content };
+      })
+    };
+
+    if (useTools) {
+      body.tools = Tools.DEFINITIONS.map(def => ({
+        name: def.function.name,
+        description: def.function.description,
+        input_schema: def.function.parameters
+      }));
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -92,15 +176,7 @@ export const API = {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: model || 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content
-        }))
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -109,36 +185,31 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.content[0].text;
+    
+    // 解析 Claude 响应
+    const contentBlocks = data.content;
+    const textBlock = contentBlocks.find(b => b.type === 'text');
+    const toolUseBlocks = contentBlocks.filter(b => b.type === 'tool_use');
+
+    const result = {
+      content: textBlock ? textBlock.text : '',
+      rawMessage: { role: 'assistant', content: contentBlocks } // 保存完整结构用于历史
+    };
+
+    if (toolUseBlocks.length > 0) {
+      result.tool_calls = toolUseBlocks.map(block => ({
+        id: block.id,
+        name: block.name,
+        args: block.input
+      }));
+    }
+
+    return result;
   },
 
   // DeepSeek API (OpenAI 兼容)
-  async _sendDeepSeek(systemPrompt, messages, apiKey, model) {
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model || 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error?.message || `API 错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
+  async _sendDeepSeek(systemPrompt, messages, apiKey, model, useTools = false) {
+    return this._sendOpenAI(systemPrompt, messages, apiKey, model, useTools, 'https://api.deepseek.com/chat/completions');
   },
 
   // Gemini API
@@ -179,42 +250,21 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    return { content: data.candidates[0].content.parts[0].text };
   },
 
   // OpenAI API
-  async _sendOpenAI(systemPrompt, messages, apiKey, model) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
-    });
+  async _sendOpenAI(systemPrompt, messages, apiKey, model, useTools = false, endpoint = 'https://api.openai.com/v1/chat/completions') {
+    const body = {
+      model: model || 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ]
+    };
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error?.message || `API 错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-  },
-
-  // OpenAI 兼容 API
-  async _sendOpenAICompatible(systemPrompt, messages, apiKey, model, endpoint) {
-    if (!endpoint) {
-      throw new Error('请在设置中配置 API 端点');
+    if (useTools) {
+      body.tools = Tools.DEFINITIONS;
     }
 
     const response = await fetch(endpoint, {
@@ -223,16 +273,7 @@ export const API = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -241,7 +282,27 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const message = data.choices[0].message;
+
+    const result = {
+      content: message.content,
+      rawMessage: message
+    };
+
+    if (message.tool_calls) {
+      result.tool_calls = message.tool_calls.map(call => ({
+        id: call.id,
+        name: call.function.name,
+        args: JSON.parse(call.function.arguments)
+      }));
+    }
+
+    return result;
+  },
+
+  // OpenAI 兼容 API
+  async _sendOpenAICompatible(systemPrompt, messages, apiKey, model, endpoint) {
+    return this._sendOpenAI(systemPrompt, messages, apiKey, model, false, endpoint);
   },
 
   // 测试模式 - 复读用户消息

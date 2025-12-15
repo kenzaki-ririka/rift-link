@@ -63,7 +63,7 @@ export const Character = {
   },
 
   // 构建系统提示词
-  buildSystemPrompt(character, timeContext) {
+  buildSystemPrompt(character, timeContext, useTools = false) {
     const { world, character: char, connection } = character;
 
     // 获取用户自定义模板或使用默认模板
@@ -92,6 +92,11 @@ export const Character = {
     let prompt = template;
     for (const [placeholder, value] of Object.entries(replacements)) {
       prompt = prompt.split(placeholder).join(value);
+    }
+
+    // 如果启用了工具调用，添加提示
+    if (useTools) {
+      prompt += '\n\nIMPORTANT: Use the provided tools (schedule_contact, manage_status, manage_schedule) to manage your state and contact plans. Do not use XML tags like <nc:...> or <st:...> in your response text.';
     }
 
     return prompt;
