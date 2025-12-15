@@ -92,7 +92,7 @@ export const API = {
       case 'claude':
         return this._sendClaudeWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'deepseek':
-        return this._sendDeepSeekWithTools(systemPrompt, messages, apiKey, apiModel, null);
+        return this._sendDeepSeekWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'gemini':
         return this._sendGeminiWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'openai':
@@ -168,24 +168,31 @@ export const API = {
     return { content, tool_calls };
   },
 
-  // DeepSeek API (不支持工具调用)
+  // DeepSeek API (支持工具调用)
   async _sendDeepSeekWithTools(systemPrompt, messages, apiKey, model, tools) {
+    const body = {
+      model: model || 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ]
+    };
+
+    // 添加工具定义
+    if (tools) {
+      body.tools = tools;
+    }
+
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: model || 'deepseek-chat',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -194,7 +201,11 @@ export const API = {
     }
 
     const data = await response.json();
-    return { content: data.choices[0].message.content, tool_calls: null };
+    const msg = data.choices[0].message;
+    return {
+      content: msg.content || '',
+      tool_calls: msg.tool_calls || null
+    };
   },
 
   // Gemini API (支持工具调用)
@@ -350,7 +361,17 @@ export const API = {
   },
 
   // 测试模式
-  _sendTestWithTools(messages) {
+  async _sendTestWithTools(messages) {
+    console.log('[API Request]', JSON.stringify({
+      model: 'test',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ]
+    }));
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     const content = lastUserMessage ? lastUserMessage.content : '[测试模式] 没有收到用户消息';
     return Promise.resolve({ content, tool_calls: null });

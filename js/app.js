@@ -642,13 +642,16 @@ const App = {
             
             <div class="editor-row">
               <label>粘人程度：${chancePercent}%</label>
-              <input type="range" id="ed_baseChance" min="0" max="30" value="${chancePercent}">
+              <input type="number" id="ed_baseChance" min="0" max="100" value="${chancePercent}">
               <div class="range-labels">
                 <span>偶尔想起</span>
                 <span>经常想你</span>
                 <span>非常粘人</span>
               </div>
+              <label>判定间隔（秒）</label>
+              <input type="number" id="ed_interval" min="0" value="10">
               <div class="hint">每10分钟判定一次是否主动联系你</div>
+
             </div>
           </div>
 
@@ -1157,15 +1160,8 @@ const App = {
             </div>
             
             <div class="settings-row">
-              <label>历史对话记忆数量</label>
-              <select id="set_historyLimit">
-                <option value="10" ${settings.historyLimit === 10 ? 'selected' : ''}>10条</option>
-                <option value="20" ${settings.historyLimit === 20 || !settings.historyLimit ? 'selected' : ''}>20条</option>
-                <option value="50" ${settings.historyLimit === 50 ? 'selected' : ''}>50条</option>
-                <option value="100" ${settings.historyLimit === 100 ? 'selected' : ''}>100条</option>
-                <option value="200" ${settings.historyLimit === 200 ? 'selected' : ''}>200条</option>
-                <option value="0" ${settings.historyLimit === 0 ? 'selected' : ''}>无限制</option>
-              </select>
+              <label>历史对话记忆数量，0为无限制</label>
+              <input type="number" id="set_historyLimit" value="${settings.historyLimit ?? 20}" min="0">
               <div class="hint">AI能记住的对话数量。越多越消耗Token，无限制可能导致超出上下文长度</div>
             </div>
           </div>
