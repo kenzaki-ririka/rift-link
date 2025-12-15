@@ -1,4 +1,6 @@
 // AI API 调用模块
+import { getToolDefinitions } from './tools/index.js';
+
 export const API = {
   PROVIDERS: {
     claude: {
@@ -9,7 +11,8 @@ export const API = {
         { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
         { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' }
       ],
-      defaultModel: 'claude-sonnet-4-20250514'
+      defaultModel: 'claude-sonnet-4-20250514',
+      supportsTools: true
     },
     deepseek: {
       name: 'DeepSeek',
@@ -17,17 +20,19 @@ export const API = {
         { id: 'deepseek-chat', name: 'DeepSeek Chat' },
         { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }
       ],
-      defaultModel: 'deepseek-chat'
+      defaultModel: 'deepseek-chat',
+      supportsTools: false  // DeepSeek 工具调用支持有限
     },
     gemini: {
       name: 'Gemini (Google)',
       models: [
-        
+
         { id: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash' },
         { id: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro' },
         { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' }
       ],
-      defaultModel: 'gemini-2.5-flash-preview-05-20'
+      defaultModel: 'gemini-2.5-flash-preview-05-20',
+      supportsTools: true
     },
     openai: {
       name: 'OpenAI',
@@ -36,13 +41,15 @@ export const API = {
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
         { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
       ],
-      defaultModel: 'gpt-4o'
+      defaultModel: 'gpt-4o',
+      supportsTools: true
     },
     openai_compatible: {
       name: '自定义 (OpenAI兼容)',
       models: [],
       defaultModel: '',
-      requiresEndpoint: true
+      requiresEndpoint: true,
+      supportsTools: true
     },
     test: {
       name: '测试模式 (复读)',
@@ -50,12 +57,25 @@ export const API = {
         { id: 'echo', name: '复读模式' }
       ],
       defaultModel: 'echo',
-      noApiKeyRequired: true
+      noApiKeyRequired: true,
+      supportsTools: false
     }
   },
 
-  // 发送消息到 AI
+  // 检查提供商是否支持工具调用
+  supportsTools(apiProvider) {
+    return this.PROVIDERS[apiProvider]?.supportsTools || false;
+  },
+
+  // 发送消息到 AI（兼容旧接口，只返回文本）
   async sendMessage(systemPrompt, messages, settings) {
+    const response = await this.sendMessageWithTools(systemPrompt, messages, settings, null);
+    return response.content || '';
+  },
+
+  // 发送消息到 AI（支持工具调用）
+  // 返回: { content: string, tool_calls: array | null }
+  async sendMessageWithTools(systemPrompt, messages, settings, tools = null) {
     const { apiProvider, apiKey, apiModel, apiEndpoint } = settings;
 
     // 测试模式不需要 API Key
@@ -64,26 +84,48 @@ export const API = {
       throw new Error('请先在设置中配置 API Key');
     }
 
+    // 如果提供商不支持工具调用，忽略 tools 参数
+    const useTools = tools && this.supportsTools(apiProvider);
+
     switch (apiProvider) {
       case 'claude':
-        return this._sendClaude(systemPrompt, messages, apiKey, apiModel);
+        return this._sendClaudeWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'deepseek':
-        return this._sendDeepSeek(systemPrompt, messages, apiKey, apiModel);
+        return this._sendDeepSeekWithTools(systemPrompt, messages, apiKey, apiModel, null);
       case 'gemini':
-        return this._sendGemini(systemPrompt, messages, apiKey, apiModel);
+        return this._sendGeminiWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'openai':
-        return this._sendOpenAI(systemPrompt, messages, apiKey, apiModel);
+        return this._sendOpenAIWithTools(systemPrompt, messages, apiKey, apiModel, useTools ? tools : null);
       case 'openai_compatible':
-        return this._sendOpenAICompatible(systemPrompt, messages, apiKey, apiModel, apiEndpoint);
+        return this._sendOpenAICompatibleWithTools(systemPrompt, messages, apiKey, apiModel, apiEndpoint, useTools ? tools : null);
       case 'test':
-        return this._sendTest(messages);
+        return this._sendTestWithTools(messages);
       default:
         throw new Error('不支持的 API 提供商');
     }
   },
 
-  // Claude API
-  async _sendClaude(systemPrompt, messages, apiKey, model) {
+  // Claude API (支持工具调用)
+  async _sendClaudeWithTools(systemPrompt, messages, apiKey, model, tools) {
+    const body = {
+      model: model || 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+    };
+
+    // 添加工具定义 (Claude 格式)
+    if (tools) {
+      body.tools = tools.map(t => ({
+        name: t.function.name,
+        description: t.function.description,
+        input_schema: t.function.parameters
+      }));
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -92,15 +134,7 @@ export const API = {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: model || 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content
-        }))
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -109,11 +143,32 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.content[0].text;
+
+    // 解析 Claude 的工具调用响应
+    let content = '';
+    let tool_calls = null;
+
+    for (const block of data.content) {
+      if (block.type === 'text') {
+        content += block.text;
+      } else if (block.type === 'tool_use') {
+        if (!tool_calls) tool_calls = [];
+        tool_calls.push({
+          id: block.id,
+          type: 'function',
+          function: {
+            name: block.name,
+            arguments: JSON.stringify(block.input)
+          }
+        });
+      }
+    }
+
+    return { content, tool_calls };
   },
 
-  // DeepSeek API (OpenAI 兼容)
-  async _sendDeepSeek(systemPrompt, messages, apiKey, model) {
+  // DeepSeek API (不支持工具调用)
+  async _sendDeepSeekWithTools(systemPrompt, messages, apiKey, model, tools) {
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -138,18 +193,15 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    return { content: data.choices[0].message.content, tool_calls: null };
   },
 
-  // Gemini API
-  async _sendGemini(systemPrompt, messages, apiKey, model) {
+  // Gemini API (支持工具调用)
+  async _sendGeminiWithTools(systemPrompt, messages, apiKey, model, tools) {
     const modelId = model || 'gemini-2.5-flash-preview-05-20';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
-    // 转换消息格式
     const contents = [];
-
-    // Gemini 需要把 system prompt 作为第一条消息或者用 systemInstruction
     for (const m of messages) {
       contents.push({
         role: m.role === 'assistant' ? 'model' : 'user',
@@ -157,20 +209,31 @@ export const API = {
       });
     }
 
+    const body = {
+      contents: contents,
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      generationConfig: {
+        maxOutputTokens: 1024
+      }
+    };
+
+    // 添加工具定义 (Gemini 格式)
+    if (tools) {
+      body.tools = [{
+        functionDeclarations: tools.map(t => ({
+          name: t.function.name,
+          description: t.function.description,
+          parameters: t.function.parameters
+        }))
+      }];
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: contents,
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        generationConfig: {
-          maxOutputTokens: 1024
-        }
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -179,27 +242,54 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
+    const candidate = data.candidates[0];
+
+    let content = '';
+    let tool_calls = null;
+
+    for (const part of candidate.content.parts) {
+      if (part.text) {
+        content += part.text;
+      } else if (part.functionCall) {
+        if (!tool_calls) tool_calls = [];
+        tool_calls.push({
+          id: `call_${Date.now()}_${tool_calls.length}`,
+          type: 'function',
+          function: {
+            name: part.functionCall.name,
+            arguments: JSON.stringify(part.functionCall.args)
+          }
+        });
+      }
+    }
+
+    return { content, tool_calls };
   },
 
-  // OpenAI API
-  async _sendOpenAI(systemPrompt, messages, apiKey, model) {
+  // OpenAI API (支持工具调用)
+  async _sendOpenAIWithTools(systemPrompt, messages, apiKey, model, tools) {
+    const body = {
+      model: model || 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ]
+    };
+
+    if (tools) {
+      body.tools = tools;
+    }
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: model || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -208,13 +298,32 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const msg = data.choices[0].message;
+    return {
+      content: msg.content || '',
+      tool_calls: msg.tool_calls || null
+    };
   },
 
-  // OpenAI 兼容 API
-  async _sendOpenAICompatible(systemPrompt, messages, apiKey, model, endpoint) {
+  // OpenAI 兼容 API (支持工具调用)
+  async _sendOpenAICompatibleWithTools(systemPrompt, messages, apiKey, model, endpoint, tools) {
     if (!endpoint) {
       throw new Error('请在设置中配置 API 端点');
+    }
+
+    const body = {
+      model: model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ]
+    };
+
+    if (tools) {
+      body.tools = tools;
     }
 
     const response = await fetch(endpoint, {
@@ -223,16 +332,7 @@ export const API = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        ]
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -241,17 +341,18 @@ export const API = {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const msg = data.choices[0].message;
+    return {
+      content: msg.content || '',
+      tool_calls: msg.tool_calls || null
+    };
   },
 
-  // 测试模式 - 复读用户消息
-  _sendTest(messages) {
-    // 获取最后一条用户消息并复读
+  // 测试模式
+  _sendTestWithTools(messages) {
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-    if (lastUserMessage) {
-      return Promise.resolve(lastUserMessage.content);
-    }
-    return Promise.resolve('[测试模式] 没有收到用户消息');
+    const content = lastUserMessage ? lastUserMessage.content : '[测试模式] 没有收到用户消息';
+    return Promise.resolve({ content, tool_calls: null });
   },
 
   // 生成角色卡

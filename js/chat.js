@@ -2,6 +2,7 @@ import { Storage } from './storage.js';
 import { API } from './api.js';
 import { Character } from './character.js';
 import { TimeManager } from './time.js';
+import { getToolDefinitions, executeToolCalls } from './tools/index.js';
 
 // 聊天逻辑
 export const Chat = {
@@ -152,15 +153,37 @@ export const Chat = {
     });
 
     try {
-      let reply = await API.sendMessage(systemPrompt, recentMessages, settings);
+      // 获取工具定义
+      const tools = getToolDefinitions();
 
-      // 解析并处理状态标记
-      const statusData = Character.parseStatusTag(reply);
-      if (statusData) {
-        Character.processStatus(channelId, statusData);
-        // 触发UI更新状态显示
+      // 调用API（支持工具调用）
+      const response = await API.sendMessageWithTools(systemPrompt, recentMessages, settings, tools);
+      let reply = response.content || '';
+
+      // 处理工具调用（如果有）
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        console.log('[Chat] 主动消息收到工具调用:', response.tool_calls.map(t => t.function.name));
+        const context = { channelId };
+        const results = executeToolCalls(response.tool_calls, context);
+
+        // 检查是否有 set_next_contact，需要设置定时器
+        for (const result of results) {
+          if (result.result.delayMs) {
+            this.scheduleNextContact(channelId, result.result.delayMs, result.result.reason);
+          }
+        }
+
         if (window.App && window.App.updateStatusDisplay) {
           window.App.updateStatusDisplay(channelId);
+        }
+      } else {
+        // 回退：解析标签
+        const statusData = Character.parseStatusTag(reply);
+        if (statusData) {
+          Character.processStatus(channelId, statusData);
+          if (window.App && window.App.updateStatusDisplay) {
+            window.App.updateStatusDisplay(channelId);
+          }
         }
       }
 
@@ -300,68 +323,76 @@ export const Chat = {
       content: content
     });
 
-    // 调用API
-    let reply = await API.sendMessage(systemPrompt, recentMessages, settings);
+    // 获取工具定义
+    const tools = getToolDefinitions();
 
-    // 解析并处理状态标记
-    const statusData = Character.parseStatusTag(reply);
-    if (statusData) {
-      Character.processStatus(channelId, statusData);
-      // 触发UI更新状态显示
+    // 调用API（支持工具调用）
+    const response = await API.sendMessageWithTools(systemPrompt, recentMessages, settings, tools);
+    let reply = response.content || '';
+
+    // 处理工具调用（如果有）
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log('[Chat] 收到工具调用:', response.tool_calls.map(t => t.function.name));
+      const context = { channelId };
+      const results = executeToolCalls(response.tool_calls, context);
+
+      // 检查是否有 set_next_contact，需要设置定时器
+      for (const result of results) {
+        if (result.result.delayMs) {
+          this.scheduleNextContact(channelId, result.result.delayMs, result.result.reason);
+        }
+      }
+
+      // 触发UI更新
       if (window.App && window.App.updateStatusDisplay) {
         window.App.updateStatusDisplay(channelId);
       }
-    }
-
-    // 解析并处理日程修改标记
-    const schActions = Character.parseSchTag(reply);
-    if (schActions) {
-      Character.processSchTag(channelId, schActions);
-    }
-
-    // 解析主动联络标记
-    const nextContact = Character.parseProactiveTag(reply);
-    if (nextContact) {
-      // 计算毫秒数
-      let delayMs;
-      if (nextContact.unit) {
-        // 新格式: {time, unit, reason}
-        const time = nextContact.time || 1;
-        switch (nextContact.unit) {
-          case 'seconds':
-            delayMs = time * 1000;
-            break;
-          case 'minutes':
-            delayMs = time * 60 * 1000;
-            break;
-          case 'hours':
-            delayMs = time * 60 * 60 * 1000;
-            break;
-          default:
-            delayMs = time * 60 * 1000; // 默认分钟
+    } else {
+      // 回退：解析标签（用于不支持工具调用的模型）
+      const statusData = Character.parseStatusTag(reply);
+      if (statusData) {
+        Character.processStatus(channelId, statusData);
+        if (window.App && window.App.updateStatusDisplay) {
+          window.App.updateStatusDisplay(channelId);
         }
-      } else if (nextContact.minutes) {
-        // 旧格式: {minutes, reason}
-        delayMs = nextContact.minutes * 60 * 1000;
-      } else if (nextContact.hours) {
-        // 更旧的格式: {hours, reason}
-        delayMs = nextContact.hours * 60 * 60 * 1000;
-      } else {
-        delayMs = 30 * 60 * 1000; // 默认30分钟
       }
 
-      const sendAt = new Date(Date.now() + delayMs);
-      Storage.setPendingContact(channelId, {
-        sendAt: sendAt.toISOString(),
-        reason: nextContact.reason,
-        persistent: nextContact.persistent || false  // 是否持久（不被玩家消息取消）
-      });
+      const schActions = Character.parseSchTag(reply);
+      if (schActions) {
+        Character.processSchTag(channelId, schActions);
+      }
 
-      // 设置定时器来实际发送主动消息
-      this.scheduleNextContact(channelId, delayMs, nextContact.reason);
+      const nextContact = Character.parseProactiveTag(reply);
+      if (nextContact) {
+        let delayMs;
+        if (nextContact.unit) {
+          const time = nextContact.time || 1;
+          switch (nextContact.unit) {
+            case 'seconds': delayMs = time * 1000; break;
+            case 'minutes': delayMs = time * 60 * 1000; break;
+            case 'hours': delayMs = time * 60 * 60 * 1000; break;
+            default: delayMs = time * 60 * 1000;
+          }
+        } else if (nextContact.minutes) {
+          delayMs = nextContact.minutes * 60 * 1000;
+        } else if (nextContact.hours) {
+          delayMs = nextContact.hours * 60 * 60 * 1000;
+        } else {
+          delayMs = 30 * 60 * 1000;
+        }
+
+        const sendAt = new Date(Date.now() + delayMs);
+        Storage.setPendingContact(channelId, {
+          sendAt: sendAt.toISOString(),
+          reason: nextContact.reason,
+          persistent: nextContact.persistent || false
+        });
+
+        this.scheduleNextContact(channelId, delayMs, nextContact.reason);
+      }
     }
 
-    // 移除标记
+    // 移除标记（无论是否使用工具调用）
     reply = Character.removeProactiveTag(reply);
 
     // 保存AI回复
