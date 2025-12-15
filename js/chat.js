@@ -1,5 +1,10 @@
+import { Storage } from './storage.js';
+import { API } from './api.js';
+import { Character } from './character.js';
+import { TimeManager } from './time.js';
+
 // 聊天逻辑
-const Chat = {
+export const Chat = {
   currentChannelId: null,
   proactiveTimer: null,           // 定时概率检查（每10分钟）
   scheduledContactTimer: null,    // AI 决定的精确定时联络

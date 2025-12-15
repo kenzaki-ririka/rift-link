@@ -1,5 +1,5 @@
 // localStorage 存储管理
-const Storage = {
+export const Storage = {
   KEYS: {
     SETTINGS: 'rift_settings',
     CHANNELS: 'rift_channels',

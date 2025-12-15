@@ -1,5 +1,5 @@
 // 时间管理与主动联络判定
-const TimeManager = {
+export const TimeManager = {
   // 格式化时间差
   formatTimeDiff(ms) {
     const minutes = Math.floor(ms / (1000 * 60));

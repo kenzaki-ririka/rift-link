@@ -1,5 +1,5 @@
 // 预设角色加载器
-const PresetLoader = {
+export const PresetLoader = {
   // 预设角色列表（从 JSON 加载后填充）
   presets: {},
   
@@ -60,7 +60,7 @@ const PresetLoader = {
 };
 
 // 创建空白角色卡模板
-function createBlankCharacter() {
+export function createBlankCharacter() {
   return {
     id: 'char_' + Date.now(),
     name: '',
@@ -93,5 +93,3 @@ function createBlankCharacter() {
   };
 }
 
-// 为了向后兼容，保留 PRESET_CHARACTERS 变量（会在加载后填充）
-let PRESET_CHARACTERS = {};

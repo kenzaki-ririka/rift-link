@@ -1,3 +1,10 @@
+import { Storage } from './storage.js';
+import { API } from './api.js';
+import { TimeManager } from './time.js';
+import { Character } from './character.js';
+import { Chat } from './chat.js';
+import { createBlankCharacter } from '../data/presets.js';
+
 // 主应用
 const App = {
   currentView: 'select', // select, chat, editor, settings
