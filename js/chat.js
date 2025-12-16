@@ -47,7 +47,8 @@ export const Chat = {
 
   // 检查离线期间应该触发的主动联络
   async checkOfflineContacts(channel) {
-    const lastVisit = Storage.getLastVisit(channel.id);
+    // 使用心跳时间（定时器最后运行的时间），而不是 lastVisit
+    const lastHeartbeat = Storage.getLastHeartbeat(channel.id);
 
     // 如果是第一次访问且没有消息，显示第一条消息
     if (!channel.messages || channel.messages.length === 0) {
@@ -68,9 +69,9 @@ export const Chat = {
       return;
     }
 
-    // 计算离线期间的主动联络
+    // 计算离线期间的主动联络（从最后心跳时间开始）
     const contacts = TimeManager.calculateOfflineContacts(
-      lastVisit,
+      lastHeartbeat,
       channel.proactiveContact
     );
 
@@ -89,6 +90,9 @@ export const Chat = {
     const intervalMs = checkIntervalMinutes * 1000;
 
     this.proactiveTimer = setInterval(async () => {
+      // 记录心跳（定时器还活着）
+      Storage.setLastHeartbeat(channel.id, new Date().toISOString());
+
       // 检查当前状态
       const status = Storage.getStatus(channel.id);
 

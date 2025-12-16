@@ -344,6 +344,20 @@ export const Storage = {
     this.saveChannel(channel);
   },
 
+  // 获取最后心跳时间（定时器最后一次运行的时间）
+  getLastHeartbeat(channelId) {
+    const channel = this.getChannel(channelId);
+    // 兼容旧数据：如果没有 lastHeartbeat，使用 lastVisit
+    return channel?.lastHeartbeat || channel?.lastVisit || null;
+  },
+
+  setLastHeartbeat(channelId, timestamp) {
+    const channel = this.getChannel(channelId);
+    if (!channel) return;
+    channel.lastHeartbeat = timestamp;
+    this.saveChannel(channel);
+  },
+
   // ========== 导出/导入 ==========
   exportAll() {
     return {
