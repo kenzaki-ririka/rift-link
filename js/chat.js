@@ -107,10 +107,10 @@ export const Chat = {
           // 确保还在同一个频道
           if (this.currentChannelId === channel.id) {
             await this.generateProactiveMessage(channel.id);
-            // 触发UI更新
-            if (window.App) {
-              window.App.renderChat(channel.id);
-            }
+            // 触发UI更新事件
+            window.dispatchEvent(new CustomEvent('rift-new-message', {
+              detail: { channelId: channel.id }
+            }));
           }
         }, delayMs);
       }
@@ -173,17 +173,13 @@ export const Chat = {
           }
         }
 
-        if (window.App && window.App.updateStatusDisplay) {
-          window.App.updateStatusDisplay(channelId);
-        }
+        window.dispatchEvent(new CustomEvent('rift-status-update', { detail: { channelId } }));
       } else {
         // 回退：解析标签
         const statusData = Character.parseStatusTag(reply);
         if (statusData) {
           Character.processStatus(channelId, statusData);
-          if (window.App && window.App.updateStatusDisplay) {
-            window.App.updateStatusDisplay(channelId);
-          }
+          window.dispatchEvent(new CustomEvent('rift-status-update', { detail: { channelId } }));
         }
       }
 
@@ -204,9 +200,7 @@ export const Chat = {
       if (currentStatus) {
         Storage.clearStatus(channelId);
         console.log('[Chat] 主动联络成功，清除状态:', currentStatus.label);
-        if (window.App && window.App.updateStatusDisplay) {
-          window.App.updateStatusDisplay(channelId);
-        }
+        window.dispatchEvent(new CustomEvent('rift-status-update', { detail: { channelId } }));
       }
 
       // 清除待处理的联络
@@ -344,17 +338,13 @@ export const Chat = {
       }
 
       // 触发UI更新
-      if (window.App && window.App.updateStatusDisplay) {
-        window.App.updateStatusDisplay(channelId);
-      }
+      window.dispatchEvent(new CustomEvent('rift-status-update', { detail: { channelId } }));
     } else {
       // 回退：解析标签（用于不支持工具调用的模型）
       const statusData = Character.parseStatusTag(reply);
       if (statusData) {
         Character.processStatus(channelId, statusData);
-        if (window.App && window.App.updateStatusDisplay) {
-          window.App.updateStatusDisplay(channelId);
-        }
+        window.dispatchEvent(new CustomEvent('rift-status-update', { detail: { channelId } }));
       }
 
       const schActions = Character.parseSchTag(reply);
@@ -420,8 +410,8 @@ export const Chat = {
 
       try {
         const msg = await this.processAndSendReply(channelId, content, settings);
-        if (msg && window.App) {
-          window.App.renderChat(channelId);
+        if (msg) {
+          window.dispatchEvent(new CustomEvent('rift-new-message', { detail: { channelId } }));
         }
       } catch (error) {
         console.error('[Chat] 延迟回复失败:', error);
@@ -494,8 +484,8 @@ export const Chat = {
 
       try {
         const msg = await this.generateProactiveMessage(channelId, null, reason);
-        if (msg && window.App) {
-          window.App.renderChat(channelId);
+        if (msg) {
+          window.dispatchEvent(new CustomEvent('rift-new-message', { detail: { channelId } }));
         }
       } catch (error) {
         console.error('[Chat] 主动联络失败:', error);
