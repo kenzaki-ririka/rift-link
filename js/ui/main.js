@@ -22,3 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   render(html`<${App} />`, appContainer);
 });
 
+// 页面关闭/刷新时记录退出时间
+window.addEventListener('beforeunload', () => {
+  Chat.cleanup();
+});
+

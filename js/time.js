@@ -45,43 +45,85 @@ export const TimeManager = {
     }
   },
 
-  // 计算离线期间应该触发的主动联络次数
-  calculateOfflineContacts(lastVisit, proactiveSettings) {
-    if (!lastVisit || !proactiveSettings?.enabled) {
+  // 计算离线期间应该触发的主动联络次数（使用泊松分布，O(k) 复杂度）
+  calculateOfflineContacts(lastExit, proactiveSettings) {
+    if (!lastExit || !proactiveSettings?.enabled) {
       return [];
     }
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = proactiveSettings;
     const now = Date.now();
-    const lastVisitTime = new Date(lastVisit).getTime();
-    const elapsed = now - lastVisitTime;
+    const lastExitTime = new Date(lastExit).getTime();
+    const elapsed = now - lastExitTime;
     
-    // 计算有多少个检查间隔（checkIntervalMinutes 现在直接存储秒数）
-    const intervals = Math.floor(elapsed / (checkIntervalMinutes * 1000));
+    // 计算有多少个检查间隔
+    const intervalMs = checkIntervalMinutes * 1000;
+    const intervals = Math.floor(elapsed / intervalMs);
     
+    if (intervals <= 0) return [];
+    
+    // 使用泊松分布计算触发次数
+    // 期望值 λ = intervals * baseChance
+    const lambda = intervals * baseChance;
+    const count = this.samplePoisson(lambda);
+    
+    if (count <= 0) return [];
+    
+    // 生成 count 个随机触发时间点
+    // 在离线期间均匀分布（模拟每个间隔独立判定的效果）
     const contacts = [];
-    let currentTime = lastVisitTime;
-
-    for (let i = 0; i < intervals; i++) {
-      // 在每个间隔进行概率判定
-      if (Math.random() < baseChance) {
-        // 判定成功，计算触发时间（间隔结束 + 随机延迟）
-        const intervalEnd = lastVisitTime + (i + 1) * checkIntervalMinutes * 1000;
-        // replyDelayMinutes 现在直接存储秒数
-        const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
-        const contactTime = intervalEnd + delay;
-        
-        // 确保不超过当前时间
-        if (contactTime < now) {
-          contacts.push({
-            timestamp: new Date(contactTime).toISOString(),
-            type: 'proactive'
-          });
-        }
+    const avgDelay = (replyDelayMinutes.min + replyDelayMinutes.max) / 2 * 1000;
+    
+    for (let i = 0; i < count; i++) {
+      // 在离线期间随机选择一个时间点
+      const randomOffset = Math.random() * elapsed;
+      // 加上随机延迟
+      const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
+      const contactTime = lastExitTime + randomOffset + delay;
+      
+      // 确保不超过当前时间
+      if (contactTime < now) {
+        contacts.push({
+          timestamp: new Date(contactTime).toISOString(),
+          type: 'proactive'
+        });
       }
     }
-
+    
+    // 按时间排序
+    contacts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
     return contacts;
+  },
+
+  // 泊松分布采样（Knuth 算法，小 λ 时使用；大 λ 时使用正态近似）
+  samplePoisson(lambda) {
+    if (lambda <= 0) return 0;
+    
+    // 对于大 λ，使用正态近似 N(λ, √λ)
+    if (lambda > 30) {
+      const normal = this.sampleNormal();
+      return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * normal));
+    }
+    
+    // Knuth 算法
+    const L = Math.exp(-lambda);
+    let k = 0;
+    let p = 1;
+    
+    do {
+      k++;
+      p *= Math.random();
+    } while (p > L);
+    
+    return k - 1;
+  },
+
+  // 标准正态分布采样（Box-Muller 变换）
+  sampleNormal() {
+    const u1 = Math.random();
+    const u2 = Math.random();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   },
 
   // 设置下一次主动联络检查
