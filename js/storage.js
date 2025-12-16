@@ -30,21 +30,22 @@ export const Storage = {
       }
 
       // 迁移2：确保 proactiveContact 有完整结构
+      // 注意：checkIntervalMinutes 和 replyDelayMinutes 现在直接存储秒数
       if (!channel.proactiveContact) {
         channel.proactiveContact = {
           enabled: true,
           baseChance: 0.1,
-          checkIntervalMinutes: 15,
-          replyDelayMinutes: { min: 0, max: 10 }
+          checkIntervalMinutes: 37,
+          replyDelayMinutes: { min: 0, max: 60 }
         };
         needsSave = true;
       } else {
         if (channel.proactiveContact.checkIntervalMinutes === undefined) {
-          channel.proactiveContact.checkIntervalMinutes = 15;
+          channel.proactiveContact.checkIntervalMinutes = 37;
           needsSave = true;
         }
         if (!channel.proactiveContact.replyDelayMinutes) {
-          channel.proactiveContact.replyDelayMinutes = { min: 0, max: 10 };
+          channel.proactiveContact.replyDelayMinutes = { min: 0, max: 60 };
           needsSave = true;
         }
       }

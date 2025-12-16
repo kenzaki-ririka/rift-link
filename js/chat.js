@@ -85,7 +85,8 @@ export const Chat = {
     if (!channel.proactiveContact?.enabled) return;
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = channel.proactiveContact;
-    const intervalMs = checkIntervalMinutes * 60 * 1000;
+    // checkIntervalMinutes 现在直接存储秒数
+    const intervalMs = checkIntervalMinutes * 1000;
 
     this.proactiveTimer = setInterval(async () => {
       // 检查当前状态
@@ -100,8 +101,8 @@ export const Chat = {
 
       // 概率判定
       if (Math.random() < actualChance) {
-        // 计算延迟
-        const delayMs = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 60 * 1000;
+        // 计算延迟（replyDelayMinutes 现在直接存储秒数）
+        const delayMs = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
 
         setTimeout(async () => {
           // 确保还在同一个频道

@@ -56,8 +56,8 @@ export const TimeManager = {
     const lastVisitTime = new Date(lastVisit).getTime();
     const elapsed = now - lastVisitTime;
     
-    // 计算有多少个检查间隔
-    const intervals = Math.floor(elapsed / (checkIntervalMinutes * 60 * 1000));
+    // 计算有多少个检查间隔（checkIntervalMinutes 现在直接存储秒数）
+    const intervals = Math.floor(elapsed / (checkIntervalMinutes * 1000));
     
     const contacts = [];
     let currentTime = lastVisitTime;
@@ -66,8 +66,9 @@ export const TimeManager = {
       // 在每个间隔进行概率判定
       if (Math.random() < baseChance) {
         // 判定成功，计算触发时间（间隔结束 + 随机延迟）
-        const intervalEnd = lastVisitTime + (i + 1) * checkIntervalMinutes * 60 * 1000;
-        const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 60 * 1000;
+        const intervalEnd = lastVisitTime + (i + 1) * checkIntervalMinutes * 1000;
+        // replyDelayMinutes 现在直接存储秒数
+        const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
         const contactTime = intervalEnd + delay;
         
         // 确保不超过当前时间
@@ -89,14 +90,14 @@ export const TimeManager = {
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = proactiveSettings;
     
-    // 每 checkIntervalMinutes 分钟检查一次
-    const intervalMs = checkIntervalMinutes * 60 * 1000;
+    // 每 checkIntervalMinutes 秒检查一次
+    const intervalMs = checkIntervalMinutes * 1000;
     
     const timerId = setInterval(() => {
       // 概率判定
       if (Math.random() < baseChance) {
-        // 判定成功，计算延迟后触发
-        const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 60 * 1000;
+        // 判定成功，计算延迟后触发（replyDelayMinutes 现在直接存储秒数）
+        const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
         
         setTimeout(() => {
           callback(channelId);

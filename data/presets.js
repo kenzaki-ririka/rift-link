@@ -87,8 +87,8 @@ export function createBlankCharacter() {
     proactiveContact: {
       enabled: true,
       baseChance: 0.1,
-      checkIntervalMinutes: 10,
-      replyDelayMinutes: { min: 0, max: 10 }
+      checkIntervalMinutes: 37,
+      replyDelayMinutes: { min: 0, max: 60 }
     }
   };
 }

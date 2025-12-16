@@ -409,10 +409,6 @@ export const API = {
     "medium": "通讯媒介（如：神秘的APP、老旧收音机、梦境连接等）",
     "mediumDescription": "媒介说明（这个连接是如何建立的，30-50字）",
     "firstMessage": "第一条消息（角色发给用户的第一条消息，要有吸引力，能让人想回复，50-150字）"
-  },
-  "proactiveContact": {
-    "enabled": true,
-    "baseChance": 0.1
   }
 }`;
 
@@ -440,12 +436,12 @@ export const API = {
         throw new Error('生成的角色缺少必要字段');
       }
 
-      // 确保proactiveContact有默认值
+      // 确保proactiveContact有默认值（单位均为秒）
       character.proactiveContact = character.proactiveContact || {
         enabled: true,
         baseChance: 0.1,
-        checkIntervalMinutes: 15,
-        replyDelayMinutes: { min: 0, max: 10 }
+        checkIntervalMinutes: 37,
+        replyDelayMinutes: { min: 0, max: 60 }
       };
 
       return character;

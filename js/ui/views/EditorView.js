@@ -53,13 +53,18 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
       savedChannel.messages = [];
     }
 
-    // 处理主动联络设置
-    const baseChance = parseFloat(channel.proactiveContact?.baseChance) || 0.1;
+    // 处理主动联络设置（单位均为秒）
     savedChannel.proactiveContact = {
       enabled: true,
-      baseChance: baseChance,
-      checkIntervalMinutes: 10,
-      replyDelayMinutes: { min: 0, max: 10 }
+      baseChance: Number.isFinite(parseFloat(channel.proactiveContact?.baseChance)) 
+        ? parseFloat(channel.proactiveContact?.baseChance) : 0.1,
+      checkIntervalMinutes: parseInt(channel.proactiveContact?.checkIntervalMinutes) || 37,
+      replyDelayMinutes: {
+        min: Number.isFinite(parseInt(channel.proactiveContact?.replyDelayMinutes?.min))
+          ? parseInt(channel.proactiveContact?.replyDelayMinutes?.min) : 0,
+        max: Number.isFinite(parseInt(channel.proactiveContact?.replyDelayMinutes?.max))
+          ? parseInt(channel.proactiveContact?.replyDelayMinutes?.max) : 60
+      }
     };
 
     Storage.saveChannel(savedChannel);
@@ -273,7 +278,41 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
               <span>非常粘人</span>
             </div>
           </div>
-        </div>
+          
+          <div class="editor-row">
+            <label>检测频率（秒）</label>
+            <input 
+              type="number" 
+              value=${(proactive.checkIntervalMinutes || 37) }
+              onInput=${(e) => updateField('proactiveContact.checkIntervalMinutes', e.target.value)}
+            />
+            <div class="hint">每隔多少秒判定一次是否主动联系你</div>
+          </div>
+          
+          <div class="editor-row">
+            <label>回复延迟（秒）</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input 
+                type="number" 
+                min="0" 
+                style="flex: 1;"
+                value=${proactive.replyDelayMinutes?.min ?? 0}
+                onInput=${(e) => updateField('proactiveContact.replyDelayMinutes.min', parseInt(e.target.value) || 0)}
+                placeholder="最小"
+              />
+              <span>~</span>
+              <input 
+                type="number" 
+                min="0" 
+                style="flex: 1;"
+                value=${proactive.replyDelayMinutes?.max ?? 60}
+                onInput=${(e) => updateField('proactiveContact.replyDelayMinutes.max', parseInt(e.target.value) || 0)}
+                placeholder="最大"
+              />
+            </div>
+            <div class="hint">主动联络触发后，延迟多久才真正发送消息</div>
+          </div>
+        </div> 
 
         <div class="editor-section">
           <h3>导入/导出</h3>
