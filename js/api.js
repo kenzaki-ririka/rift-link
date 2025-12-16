@@ -100,7 +100,7 @@ export const API = {
       case 'openai_compatible':
         return this._sendOpenAICompatibleWithTools(systemPrompt, messages, apiKey, apiModel, apiEndpoint, useTools ? tools : null);
       case 'test':
-        return this._sendTestWithTools(messages);
+        return this._sendTestWithTools(systemPrompt, messages);
       default:
         throw new Error('不支持的 API 提供商');
     }
@@ -361,7 +361,7 @@ export const API = {
   },
 
   // 测试模式
-  async _sendTestWithTools(messages) {
+  async _sendTestWithTools(systemPrompt, messages) {
     console.log('[API Request]', JSON.stringify({
       model: 'test',
       messages: [
