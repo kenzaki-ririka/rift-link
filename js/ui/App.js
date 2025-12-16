@@ -43,12 +43,6 @@ export function App() {
   // 路由处理
   function handleRoute() {
     const path = window.location.hash.slice(1) || '';
-    const isEnteringChat = path.startsWith('chat/');
-
-    // 如果离开聊天视图，记录退出时间
-    if (!isEnteringChat && view === 'chat') {
-      Chat.cleanup();
-    }
 
     if (path === 'select') {
       setView('select');

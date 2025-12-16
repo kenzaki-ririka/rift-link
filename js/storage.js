@@ -331,18 +331,16 @@ export const Storage = {
     this.saveChannel(channel);
   },
 
-  // 获取上次退出时间（用于计算离线期间的主动联络）
-  getLastExit(channelId) {
+  getLastVisit(channelId) {
     const channel = this.getChannel(channelId);
-    return channel?.lastExit || null;
+    return channel?.lastVisit || null;
   },
 
-  // 设置退出时间（在定时器停止时调用）
-  setLastExit(channelId, timestamp) {
+  setLastVisit(channelId, timestamp) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
 
-    channel.lastExit = timestamp;
+    channel.lastVisit = timestamp;
     this.saveChannel(channel);
   },
 

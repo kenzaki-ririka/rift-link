@@ -46,15 +46,15 @@ export const TimeManager = {
   },
 
   // 计算离线期间应该触发的主动联络次数（使用泊松分布，O(k) 复杂度）
-  calculateOfflineContacts(lastExit, proactiveSettings) {
-    if (!lastExit || !proactiveSettings?.enabled) {
+  calculateOfflineContacts(lastVisit, proactiveSettings) {
+    if (!lastVisit || !proactiveSettings?.enabled) {
       return [];
     }
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = proactiveSettings;
     const now = Date.now();
-    const lastExitTime = new Date(lastExit).getTime();
-    const elapsed = now - lastExitTime;
+    const lastVisitTime = new Date(lastVisit).getTime();
+    const elapsed = now - lastVisitTime;
     
     // 计算有多少个检查间隔
     const intervalMs = checkIntervalMinutes * 1000;
@@ -79,7 +79,7 @@ export const TimeManager = {
       const randomOffset = Math.random() * elapsed;
       // 加上随机延迟
       const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
-      const contactTime = lastExitTime + randomOffset + delay;
+      const contactTime = lastVisitTime + randomOffset + delay;
       
       // 确保不超过当前时间
       if (contactTime < now) {

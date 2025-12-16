@@ -12,11 +12,6 @@ export const Chat = {
 
   // 初始化聊天
   async init(channelId) {
-    // 如果从另一个频道切换过来，先记录退出时间
-    if (this.currentChannelId && this.currentChannelId !== channelId) {
-      this.recordExit(this.currentChannelId);
-    }
-
     this.currentChannelId = channelId;
 
     // 清除之前的定时器
@@ -39,13 +34,9 @@ export const Chat = {
     if (this.hasUserMessage(channel)) {
       this.setupProactiveCheck(channel);
     }
-  },
 
-  // 记录退出时间
-  recordExit(channelId) {
-    if (channelId) {
-      Storage.setLastExit(channelId, new Date().toISOString());
-    }
+    // 更新最后访问时间
+    Storage.setLastVisit(channelId, new Date().toISOString());
   },
 
   // 检查频道是否有用户发送的消息
@@ -56,7 +47,7 @@ export const Chat = {
 
   // 检查离线期间应该触发的主动联络
   async checkOfflineContacts(channel) {
-    const lastExit = Storage.getLastExit(channel.id);
+    const lastVisit = Storage.getLastVisit(channel.id);
 
     // 如果是第一次访问且没有消息，显示第一条消息
     if (!channel.messages || channel.messages.length === 0) {
@@ -79,7 +70,7 @@ export const Chat = {
 
     // 计算离线期间的主动联络
     const contacts = TimeManager.calculateOfflineContacts(
-      lastExit,
+      lastVisit,
       channel.proactiveContact
     );
 
@@ -503,11 +494,8 @@ export const Chat = {
     }, delayMs);
   },
 
-  // 清理（退出聊天时调用）
+  // 清理
   cleanup() {
-    // 记录退出时间
-    this.recordExit(this.currentChannelId);
-
     if (this.proactiveTimer) {
       clearInterval(this.proactiveTimer);
       this.proactiveTimer = null;
