@@ -133,46 +133,55 @@ export const Character = {
     return text;
   },
 
-  // 默认主动联络提示词模板
-  DEFAULT_PROACTIVE_TEMPLATE: `---
+  // 默认触发消息模板（心跳触发，无明确原因）
+  DEFAULT_TRIGGER_TEMPLATE: `（{{time}}。距离上次对话已经过去了{{elapsed}}。
 
-# 当前任务
+你正在做自己的事，忽然想起了和对方的对话。
 
-你想要主动联系对方。这不是回复，是你主动发起的消息。
-{{reason}}
+以你的方式发一条消息——可以是分享近况、追问之前的话题、或只是想聊聊。保持自然，不要太刻意。）`,
 
-请生成一条自然的主动消息。可以是：
-- 追加对话
-- 分享你刚才看到或做的事
-- 想到了之前聊过的话题
-- 单纯想知道对方在做什么
-- 发现了什么有趣的东西想告诉对方
+  // 默认触发消息模板（AI决定的联络，有明确原因）
+  DEFAULT_TRIGGER_WITH_REASON_TEMPLATE: `（{{time}}。{{reason}}
 
-保持自然，不要太刻意。
-`,
+以你的方式发一条消息。）`,
 
-  // 主动联络占位符
+  // 触发消息占位符
+  TRIGGER_PLACEHOLDERS: {
+    '{{time}}': '当前时间（如：下午 3:24）',
+    '{{elapsed}}': '距离上次对话的时间（如：2小时）',
+    '{{reason}}': 'AI 设定的联络原因'
+  },
+
+  // 兼容旧版：主动联络占位符
   PROACTIVE_PLACEHOLDERS: {
     '{{reason}}': '主动联络的原因（系统自动生成）'
   },
 
-  // 构建主动联络时的提示词
-  buildProactivePrompt(character, timeContext, reason) {
-    const basePrompt = this.buildSystemPrompt(character, timeContext);
+  // 构建主动联络时的提示词（简化：只返回基础提示词）
+  buildProactivePrompt(character, timeContext) {
+    return this.buildSystemPrompt(character, timeContext);
+  },
 
-    // 获取自定义主动联络模板或使用默认
-    const customTemplate = Storage.getProactiveTemplate();
-    const template = customTemplate || this.DEFAULT_PROACTIVE_TEMPLATE;
+  // 构建触发消息
+  buildTriggerMessage(timeContext, reason) {
+    const time = timeContext.currentTime || '现在';
+    const elapsed = timeContext.timeSinceLastAssistant || '一段时间';
 
-    // 构建 reason 文本
-    const reasonText = reason
-      ? `你想联系的原因：${reason}`
-      : '可能是想到了什么想分享，或者单纯想聊聊。';
-
-    // 替换占位符
-    const proactivePrompt = template.split('{{reason}}').join(reasonText);
-
-    return basePrompt + proactivePrompt;
+    if (reason) {
+      // 有明确原因：使用带 reason 的模板
+      const customTemplate = Storage.getTriggerWithReasonTemplate();
+      const template = customTemplate || this.DEFAULT_TRIGGER_WITH_REASON_TEMPLATE;
+      return template
+        .split('{{time}}').join(time)
+        .split('{{reason}}').join(reason);
+    } else {
+      // 心跳触发：使用默认模板
+      const customTemplate = Storage.getTriggerTemplate();
+      const template = customTemplate || this.DEFAULT_TRIGGER_TEMPLATE;
+      return template
+        .split('{{time}}').join(time)
+        .split('{{elapsed}}').join(elapsed);
+    }
   },
 
   // 解析AI回复中的主动联络标记

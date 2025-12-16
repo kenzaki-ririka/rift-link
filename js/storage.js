@@ -5,7 +5,9 @@ export const Storage = {
     CHANNELS: 'rift_channels',
     CURRENT_CHANNEL: 'rift_current_channel',
     PROMPT_TEMPLATE: 'rift_prompt_template',
-    PROACTIVE_TEMPLATE: 'rift_proactive_template'
+    PROACTIVE_TEMPLATE: 'rift_proactive_template',
+    TRIGGER_TEMPLATE: 'rift_trigger_template',
+    TRIGGER_WITH_REASON_TEMPLATE: 'rift_trigger_reason_template'
   },
 
   // 数据版本，用于迁移
@@ -128,6 +130,33 @@ export const Storage = {
 
   clearProactiveTemplate() {
     localStorage.removeItem(this.KEYS.PROACTIVE_TEMPLATE);
+  },
+
+  // ========== 触发消息模板 ==========
+  getTriggerTemplate() {
+    const data = localStorage.getItem(this.KEYS.TRIGGER_TEMPLATE);
+    return data ? JSON.parse(data) : null;
+  },
+
+  saveTriggerTemplate(template) {
+    if (template) {
+      localStorage.setItem(this.KEYS.TRIGGER_TEMPLATE, JSON.stringify(template));
+    } else {
+      localStorage.removeItem(this.KEYS.TRIGGER_TEMPLATE);
+    }
+  },
+
+  getTriggerWithReasonTemplate() {
+    const data = localStorage.getItem(this.KEYS.TRIGGER_WITH_REASON_TEMPLATE);
+    return data ? JSON.parse(data) : null;
+  },
+
+  saveTriggerWithReasonTemplate(template) {
+    if (template) {
+      localStorage.setItem(this.KEYS.TRIGGER_WITH_REASON_TEMPLATE, JSON.stringify(template));
+    } else {
+      localStorage.removeItem(this.KEYS.TRIGGER_WITH_REASON_TEMPLATE);
+    }
   },
 
   // ========== 频道（角色）管理 ==========

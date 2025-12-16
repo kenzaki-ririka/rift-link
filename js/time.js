@@ -152,10 +152,25 @@ export const TimeManager = {
 
   // 构建时间上下文（告诉AI时间信息）
   buildTimeContext(messages, currentTimestamp) {
+    const now = new Date(currentTimestamp);
+    
+    // 格式化当前时间
+    const hours = now.getHours();
+    let timeOfDay = '';
+    if (hours >= 5 && hours < 12) timeOfDay = '早上';
+    else if (hours >= 12 && hours < 14) timeOfDay = '中午';
+    else if (hours >= 14 && hours < 18) timeOfDay = '下午';
+    else if (hours >= 18 && hours < 22) timeOfDay = '晚上';
+    else timeOfDay = '深夜';
+    
+    const currentTime = `${timeOfDay} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
     if (messages.length === 0) {
       return {
         isFirstContact: true,
-        context: '这是对方第一次回复你的消息。'
+        context: '这是对方第一次回复你的消息。',
+        currentTime: currentTime,
+        timeSinceLastAssistant: null
       };
     }
 
@@ -174,13 +189,14 @@ export const TimeManager = {
       if (lastAssistantMsg && lastUserMsg) break;
     }
 
-    const now = new Date(currentTimestamp);
     let context = '';
+    let timeSinceLastAssistant = null;
 
     if (lastAssistantMsg) {
       const lastMsgTime = new Date(lastAssistantMsg.timestamp);
       const diff = now - lastMsgTime;
-      context += `你上次发消息的时间：${this.formatMessageTime(lastAssistantMsg.timestamp)}（${this.formatTimeDiff(diff)}前）\n`;
+      timeSinceLastAssistant = this.formatTimeDiff(diff);
+      context += `你上次发消息的时间：${this.formatMessageTime(lastAssistantMsg.timestamp)}（${timeSinceLastAssistant}前）\n`;
     }
 
     if (lastUserMsg) {
@@ -197,20 +213,13 @@ export const TimeManager = {
       }
     }
 
-    // 当前时间信息
-    const hours = now.getHours();
-    let timeOfDay = '';
-    if (hours >= 5 && hours < 12) timeOfDay = '早上';
-    else if (hours >= 12 && hours < 14) timeOfDay = '中午';
-    else if (hours >= 14 && hours < 18) timeOfDay = '下午';
-    else if (hours >= 18 && hours < 22) timeOfDay = '晚上';
-    else timeOfDay = '深夜';
-
-    context += `对方那边现在是：${timeOfDay}（${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}）`;
+    context += `对方那边现在是：${currentTime}`;
 
     return {
       isFirstContact: false,
-      context: context
+      context: context,
+      currentTime: currentTime,
+      timeSinceLastAssistant: timeSinceLastAssistant
     };
   }
 };

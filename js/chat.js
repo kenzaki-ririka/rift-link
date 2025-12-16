@@ -141,8 +141,8 @@ export const Chat = {
       statusContext = `\n\n# 你当前的状态\n\n你目前处于「${status.label}」状态。${status.reason ? `原因：${status.reason}` : ''}\n如果状态结束了，记得在回复中清除状态。`;
     }
 
-    // 构建提示词（传入 reason）
-    const systemPrompt = Character.buildProactivePrompt(channel, timeContext, reason) + statusContext;
+    // 构建提示词（简化：只用基础提示词，任务指引在触发消息中）
+    const systemPrompt = Character.buildProactivePrompt(channel, timeContext) + statusContext;
 
     // 准备消息历史
     const historyLimit = settings.historyLimit || 20;
@@ -151,10 +151,11 @@ export const Chat = {
       content: m.content
     }));
 
-    // 添加一个触发消息（使用 timeContext 中的时间信息）
+    // 添加触发消息（使用模板，包含时间和任务指引）
+    const triggerMessage = Character.buildTriggerMessage(timeContext, reason);
     recentMessages.push({
       role: 'user',
-      content: `[系统：请生成一条你主动发送的消息。${reason ? `原因：${reason}` : ''}]`
+      content: triggerMessage
     });
 
     try {
