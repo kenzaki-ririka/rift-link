@@ -154,7 +154,7 @@ export const TimeManager = {
   buildTimeContext(messages, currentTimestamp) {
     const now = new Date(currentTimestamp);
     
-    // 格式化当前时间
+    // 格式化当前时间（包含日期）
     const hours = now.getHours();
     let timeOfDay = '';
     if (hours >= 5 && hours < 12) timeOfDay = '早上';
@@ -163,7 +163,13 @@ export const TimeManager = {
     else if (hours >= 18 && hours < 22) timeOfDay = '晚上';
     else timeOfDay = '深夜';
     
-    const currentTime = `${timeOfDay} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const weekday = weekdays[now.getDay()];
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    const currentTime = `${month}月${day}日 ${weekday} ${timeOfDay} ${timeStr}`;
 
     if (messages.length === 0) {
       return {
