@@ -362,16 +362,14 @@ export const API = {
 
   // 测试模式
   async _sendTestWithTools(systemPrompt, messages) {
-    console.log('[API Request]', JSON.stringify({
-      model: 'test',
-      messages: [
+    console.log('[API Request]', [
         { role: 'system', content: systemPrompt },
         ...messages.map(m => ({
           role: m.role,
           content: m.content
         }))
       ]
-    }));
+    );
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     const content = lastUserMessage ? lastUserMessage.content : '[测试模式] 没有收到用户消息';
     return Promise.resolve({ content, tool_calls: null });

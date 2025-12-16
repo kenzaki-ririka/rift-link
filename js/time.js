@@ -46,28 +46,45 @@ export const TimeManager = {
   },
 
   // 计算离线期间应该触发的主动联络次数（使用泊松分布，O(k) 复杂度）
-  calculateOfflineContacts(lastVisit, proactiveSettings) {
-    if (!lastVisit || !proactiveSettings?.enabled) {
+  calculateOfflineContacts(lastHeartbeat, proactiveSettings) {
+    console.log('[DEBUG] calculateOfflineContacts 被调用');
+    console.log('[DEBUG] lastHeartbeat:', lastHeartbeat);
+    console.log('[DEBUG] proactiveSettings:', proactiveSettings);
+
+    if (!lastHeartbeat || !proactiveSettings?.enabled) {
+      console.log('[DEBUG] 条件不满足，返回空数组 (lastHeartbeat或enabled为false)');
       return [];
     }
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = proactiveSettings;
     const now = Date.now();
-    const lastVisitTime = new Date(lastVisit).getTime();
-    const elapsed = now - lastVisitTime;
+    const lastHeartbeatTime = new Date(lastHeartbeat).getTime();
+    const elapsed = now - lastHeartbeatTime;
+    
+    console.log('[DEBUG] elapsed (ms):', elapsed, '约', Math.round(elapsed/1000), '秒');
     
     // 计算有多少个检查间隔
     const intervalMs = checkIntervalMinutes * 1000;
     const intervals = Math.floor(elapsed / intervalMs);
     
-    if (intervals <= 0) return [];
+    console.log('[DEBUG] intervalMs:', intervalMs, 'intervals:', intervals);
+    
+    if (intervals <= 0) {
+      console.log('[DEBUG] intervals <= 0，返回空数组');
+      return [];
+    }
     
     // 使用泊松分布计算触发次数
     // 期望值 λ = intervals * baseChance
     const lambda = intervals * baseChance;
     const count = this.samplePoisson(lambda);
     
-    if (count <= 0) return [];
+    console.log('[DEBUG] lambda:', lambda, 'count:', count);
+    
+    if (count <= 0) {
+      console.log('[DEBUG] count <= 0，返回空数组');
+      return [];
+    }
     
     // 生成 count 个随机触发时间点
     // 在离线期间均匀分布（模拟每个间隔独立判定的效果）
@@ -79,7 +96,7 @@ export const TimeManager = {
       const randomOffset = Math.random() * elapsed;
       // 加上随机延迟
       const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
-      const contactTime = lastVisitTime + randomOffset + delay;
+      const contactTime = lastHeartbeatTime + randomOffset + delay;
       
       // 确保不超过当前时间
       if (contactTime < now) {
