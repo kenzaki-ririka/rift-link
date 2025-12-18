@@ -1,3 +1,3 @@
 这是对方第一次回复你的消息。
 
-对方那边现在是：{{currentTime}}
+对方那边现在是：{{year}}年{{month}}月{{day}}日 {{weekday}} {{timeOfDay}} {{timeStr}}

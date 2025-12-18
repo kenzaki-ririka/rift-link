@@ -2,7 +2,7 @@
 export const PresetLoader = {
   // 预设角色列表（从 JSON 加载后填充）
   presets: {},
-  
+
   // 加载所有预设角色
   async loadAll() {
     try {
@@ -12,9 +12,9 @@ export const PresetLoader = {
         console.warn('预设索引文件不存在，跳过加载预设');
         return {};
       }
-      
+
       const index = await indexResponse.json();
-      
+
       // 并行加载所有预设
       const loadPromises = index.presets.map(async (filename) => {
         try {
@@ -30,16 +30,16 @@ export const PresetLoader = {
         }
         return null;
       });
-      
+
       const results = await Promise.all(loadPromises);
-      
+
       // 将结果转换为对象
       for (const preset of results) {
         if (preset && preset.id) {
           this.presets[preset.id] = preset;
         }
       }
-      
+
       console.log(`已加载 ${Object.keys(this.presets).length} 个预设角色`);
       return this.presets;
     } catch (e) {
@@ -47,12 +47,12 @@ export const PresetLoader = {
       return {};
     }
   },
-  
+
   // 获取所有预设
   getAll() {
     return this.presets;
   },
-  
+
   // 获取单个预设
   get(id) {
     return this.presets[id] || null;
@@ -66,29 +66,37 @@ export function createBlankCharacter() {
     name: '',
     avatar: '💬',
     tagline: '',
-    
+
     world: {
       name: '',
       description: ''
     },
-    
+
     character: {
       background: '',
       personality: '',
       speechStyle: ''
     },
-    
+
     connection: {
       medium: '',
       mediumDescription: '',
       firstMessage: ''
     },
-    
+
     proactiveContact: {
       enabled: true,
       baseChance: 0.1,
       checkIntervalMinutes: 37,
       replyDelayMinutes: { min: 0, max: 60 }
+    },
+
+    // 默认日程：晚11点到早7点睡眠
+    schedule: {
+      enabled: true,
+      routine: [
+        { start: "23:00", end: "07:00", label: "睡眠中", noreply: true, chance: 0.05 }
+      ]
     }
   };
 }

@@ -173,8 +173,14 @@ export const TimeManager = {
   buildTimeContext(messages, currentTimestamp) {
     const now = new Date(currentTimestamp);
 
-    // 格式化当前时间（包含日期）
+    // 格式化当前时间（细粒度变量供用户自由组合）
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
     const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // 时间段
     let timeOfDay = '';
     if (hours >= 5 && hours < 12) timeOfDay = '早上';
     else if (hours >= 12 && hours < 14) timeOfDay = '中午';
@@ -183,19 +189,29 @@ export const TimeManager = {
     else timeOfDay = '深夜';
 
     const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
     const weekday = weekdays[now.getDay()];
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
+    // 组合时间（默认格式，用户也可自定义）
     const currentTime = `${month}月${day}日 ${weekday} ${timeOfDay} ${timeStr}`;
+
+    // 细粒度时间变量（所有模板都可使用）
+    const timeVars = {
+      year: year,
+      month: month,
+      day: day,
+      weekday: weekday,
+      timeOfDay: timeOfDay,
+      hour: hours,
+      minute: minutes.toString().padStart(2, '0'),
+      timeStr: timeStr,
+      currentTime: currentTime
+    };
 
     // 首次联络
     if (messages.length === 0) {
       const template = Prompts.get('timeContextFirst');
-      const context = this.renderTemplate(template, {
-        currentTime: currentTime
-      });
+      const context = this.renderTemplate(template, timeVars);
 
       return {
         isFirstContact: true,
@@ -220,9 +236,9 @@ export const TimeManager = {
       if (lastAssistantMsg && lastUserMsg) break;
     }
 
-    // 准备模板数据
+    // 准备模板数据（包含所有时间变量）
     const data = {
-      currentTime: currentTime,
+      ...timeVars,
       hasLastAssistant: false,
       lastAssistantTime: '',
       timeSinceLastAssistant: '',

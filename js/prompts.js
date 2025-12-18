@@ -147,7 +147,15 @@ export const PROMPT_INFO = {
         name: '时间上下文',
         description: '告诉AI当前时间和对话间隔信息的模板',
         placeholders: {
-            '{{currentTime}}': '当前日期时间（如：12月19日 星期四 深夜 00:55）',
+            '{{year}}': '年份（如：2025）',
+            '{{month}}': '月份（如：12）',
+            '{{day}}': '日期（如：19）',
+            '{{weekday}}': '星期（如：星期四）',
+            '{{timeOfDay}}': '时间段（早上/中午/下午/晚上/深夜）',
+            '{{hour}}': '小时（如：01）',
+            '{{minute}}': '分钟（如：05）',
+            '{{timeStr}}': '时间（如：01:05）',
+            '{{currentTime}}': '组合时间（如：12月19日 星期四 深夜 01:05）',
             '{{lastAssistantTime}}': '你上次发消息的时间',
             '{{timeSinceLastAssistant}}': '距离上次发消息的时间差',
             '{{lastUserTime}}': '对方回复的时间',
@@ -160,7 +168,15 @@ export const PROMPT_INFO = {
         name: '首次联络时间上下文',
         description: '用户首次回复时的时间上下文模板',
         placeholders: {
-            '{{currentTime}}': '当前日期时间'
+            '{{year}}': '年份（如：2025）',
+            '{{month}}': '月份（如：12）',
+            '{{day}}': '日期（如：19）',
+            '{{weekday}}': '星期（如：星期四）',
+            '{{timeOfDay}}': '时间段（早上/中午/下午/晚上/深夜）',
+            '{{hour}}': '小时（如：01）',
+            '{{minute}}': '分钟（如：05）',
+            '{{timeStr}}': '时间（如：01:05）',
+            '{{currentTime}}': '组合时间（默认格式）'
         }
     }
 };

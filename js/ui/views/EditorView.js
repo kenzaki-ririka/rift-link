@@ -4,18 +4,36 @@ import { Storage } from '../../storage.js';
 import { Character } from '../../character.js';
 import { createBlankCharacter } from '../../../data/presets.js';
 
+// 默认日程
+const DEFAULT_SCHEDULE = {
+  enabled: true,
+  routine: [
+    { start: "23:00", end: "07:00", label: "睡眠中", noreply: true, chance: 0.05 }
+  ]
+};
+
 export function EditorView({ channelId, onBack, onSave, onDelete }) {
   const [channel, setChannel] = useState(null);
   const [isNew, setIsNew] = useState(false);
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
+  const [newScheduleItem, setNewScheduleItem] = useState({ start: '', end: '', label: '', noreply: false });
 
   useEffect(() => {
     if (channelId === 'new' || channelId === 'new_generated') {
       const blank = window._editingGeneratedChannel || createBlankCharacter();
+      // 确保有默认日程
+      if (!blank.schedule) {
+        blank.schedule = { ...DEFAULT_SCHEDULE, routine: [...DEFAULT_SCHEDULE.routine] };
+      }
       setChannel(blank);
       setIsNew(true);
     } else {
       const ch = Storage.getChannel(channelId);
       if (ch) {
+        // 确保有日程结构
+        if (!ch.schedule) {
+          ch.schedule = { ...DEFAULT_SCHEDULE, routine: [...DEFAULT_SCHEDULE.routine] };
+        }
         setChannel(ch);
         setIsNew(false);
       }
@@ -34,6 +52,45 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
       }
       obj[parts[parts.length - 1]] = value;
       return updated;
+    });
+  }
+
+  // 日程管理函数
+  function addScheduleItem() {
+    if (!newScheduleItem.start || !newScheduleItem.end || !newScheduleItem.label) {
+      alert('请填写完整的日程信息');
+      return;
+    }
+    setChannel(prev => ({
+      ...prev,
+      schedule: {
+        ...prev.schedule,
+        routine: [...(prev.schedule?.routine || []), { ...newScheduleItem }]
+      }
+    }));
+    setNewScheduleItem({ start: '', end: '', label: '', noreply: false });
+  }
+
+  function updateScheduleItem(index, field, value) {
+    setChannel(prev => {
+      const routine = [...(prev.schedule?.routine || [])];
+      routine[index] = { ...routine[index], [field]: value };
+      return {
+        ...prev,
+        schedule: { ...prev.schedule, routine }
+      };
+    });
+  }
+
+  function deleteScheduleItem(index) {
+    if (!confirm('确定删除这个日程吗？')) return;
+    setChannel(prev => {
+      const routine = [...(prev.schedule?.routine || [])];
+      routine.splice(index, 1);
+      return {
+        ...prev,
+        schedule: { ...prev.schedule, routine }
+      };
     });
   }
 
@@ -56,7 +113,7 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
     // 处理主动联络设置（单位均为秒）
     savedChannel.proactiveContact = {
       enabled: true,
-      baseChance: Number.isFinite(parseFloat(channel.proactiveContact?.baseChance)) 
+      baseChance: Number.isFinite(parseFloat(channel.proactiveContact?.baseChance))
         ? parseFloat(channel.proactiveContact?.baseChance) : 0.1,
       checkIntervalMinutes: parseInt(channel.proactiveContact?.checkIntervalMinutes) || 37,
       replyDelayMinutes: {
@@ -66,6 +123,11 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
           ? parseInt(channel.proactiveContact?.replyDelayMinutes?.max) : 60
       }
     };
+
+    // 保存日程
+    if (!savedChannel.schedule) {
+      savedChannel.schedule = { ...DEFAULT_SCHEDULE, routine: [...DEFAULT_SCHEDULE.routine] };
+    }
 
     Storage.saveChannel(savedChannel);
     window._editingGeneratedChannel = null;
@@ -121,6 +183,7 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
 
   const proactive = channel.proactiveContact || { enabled: true, baseChance: 0.1 };
   const chancePercent = Math.round((proactive.baseChance || 0.1) * 100);
+  const schedule = channel.schedule || { enabled: true, routine: [] };
 
   return html`
     <div class="editor-screen">
@@ -261,6 +324,83 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
         </div>
 
         <div class="editor-section">
+          <h3>角色日程</h3>
+          <div class="hint" style="margin-bottom: 12px;">设置角色的日常作息，影响回复时间和主动联络</div>
+          
+          <div class="schedule-list">
+            ${schedule.routine.map((item, index) => html`
+              <div class="schedule-item" key=${index}>
+                <div class="schedule-item-main">
+                  <input 
+                    type="time" 
+                    value=${item.start}
+                    onInput=${(e) => updateScheduleItem(index, 'start', e.target.value)}
+                  />
+                  <span>~</span>
+                  <input 
+                    type="time" 
+                    value=${item.end}
+                    onInput=${(e) => updateScheduleItem(index, 'end', e.target.value)}
+                  />
+                  <input 
+                    type="text" 
+                    value=${item.label}
+                    onInput=${(e) => updateScheduleItem(index, 'label', e.target.value)}
+                    placeholder="状态名称"
+                    style="flex: 1;"
+                  />
+                </div>
+                <div class="schedule-item-options">
+                  <label class="checkbox-label">
+                    <input 
+                      type="checkbox" 
+                      checked=${item.noreply}
+                      onChange=${(e) => updateScheduleItem(index, 'noreply', e.target.checked)}
+                    />
+                    不回复
+                  </label>
+                  <button class="icon-btn danger" onClick=${() => deleteScheduleItem(index)}>✕</button>
+                </div>
+              </div>
+            `)}
+          </div>
+          
+          <div class="schedule-add">
+            <div class="schedule-add-inputs">
+              <input 
+                type="time" 
+                value=${newScheduleItem.start}
+                onInput=${(e) => setNewScheduleItem(prev => ({ ...prev, start: e.target.value }))}
+                placeholder="开始"
+              />
+              <span>~</span>
+              <input 
+                type="time" 
+                value=${newScheduleItem.end}
+                onInput=${(e) => setNewScheduleItem(prev => ({ ...prev, end: e.target.value }))}
+                placeholder="结束"
+              />
+              <input 
+                type="text" 
+                value=${newScheduleItem.label}
+                onInput=${(e) => setNewScheduleItem(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="状态名称（如：工作中）"
+                style="flex: 1;"
+              />
+              <label class="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  checked=${newScheduleItem.noreply}
+                  onChange=${(e) => setNewScheduleItem(prev => ({ ...prev, noreply: e.target.checked }))}
+                />
+                不回复
+              </label>
+            </div>
+            <button onClick=${addScheduleItem} class="add-btn">+ 添加日程</button>
+          </div>
+        </div>
+
+        <div class="editor-section">
           <h3>主动联络</h3>
           
           <div class="editor-row">
@@ -283,7 +423,7 @@ export function EditorView({ channelId, onBack, onSave, onDelete }) {
             <label>检测频率（秒）</label>
             <input 
               type="number" 
-              value=${(proactive.checkIntervalMinutes || 37) }
+              value=${(proactive.checkIntervalMinutes || 37)}
               onInput=${(e) => updateField('proactiveContact.checkIntervalMinutes', e.target.value)}
             />
             <div class="hint">每隔多少秒判定一次是否主动联系你</div>
