@@ -61,8 +61,8 @@ export const Chat = {
     console.log('[DEBUG] checkOfflineContacts 被调用, channelId:', channel.id);
 
     // 使用心跳时间（定时器最后运行的时间），而不是 lastVisit
-    const lastHeartbeat = Storage.getLastHeartbeat(channel.id);
-    console.log('[DEBUG] lastHeartbeat:', lastHeartbeat);
+    const lastHeartbeatTime = Storage.getLastHeartbeatTime(channel.id);
+    console.log('[DEBUG] lastHeartbeatTime:', lastHeartbeatTime);
 
     // 如果是第一次访问且没有消息，显示第一条消息
     if (!channel.messages || channel.messages.length === 0) {
@@ -89,14 +89,25 @@ export const Chat = {
 
     // 计算离线期间的主动联络（从最后心跳时间开始）
     const contacts = TimeManager.calculateOfflineContacts(
-      lastHeartbeat,
+      lastHeartbeatTime,
       channel.proactiveContact
     );
 
     console.log('[DEBUG] 计算结果 contacts:', contacts);
 
+    // 过滤掉在 noreply 时段内的消息
+    const validContacts = contacts.filter(contact => {
+      const isSilent = Storage.shouldBeSilentAt(channel.id, contact.timestamp);
+      if (isSilent) {
+        console.log(`[Chat] 跳过 ${contact.timestamp} 的消息（在静默时段）`);
+      }
+      return !isSilent;
+    });
+
+    console.log(`[DEBUG] 过滤后有效消息: ${validContacts.length}/${contacts.length}`);
+
     // 依次生成主动消息
-    for (const contact of contacts) {
+    for (const contact of validContacts) {
       await this.generateProactiveMessage(channel.id, contact.timestamp);
     }
   },

@@ -431,15 +431,85 @@ export const Storage = {
   // 获取最后心跳时间（定时器最后一次运行的时间）
   getLastHeartbeat(channelId) {
     const channel = this.getChannel(channelId);
-    // 兼容旧数据：如果没有 lastHeartbeat，使用 lastVisit
-    return channel?.lastHeartbeat || channel?.lastVisit || null;
+    if (!channel) return null;
+
+    // 兼容旧数据：字符串格式 → 返回时间字符串
+    // 新格式：{ timestamp, status } → 返回对象
+    const hb = channel.lastHeartbeat;
+    if (!hb) return channel.lastVisit || null;
+    if (typeof hb === 'string') return hb;  // 旧格式
+    return hb;  // 新格式
+  },
+
+  // 获取心跳时间戳（兼容新旧格式）
+  getLastHeartbeatTime(channelId) {
+    const hb = this.getLastHeartbeat(channelId);
+    if (!hb) return null;
+    if (typeof hb === 'string') return hb;
+    return hb.timestamp;
   },
 
   setLastHeartbeat(channelId, timestamp) {
     const channel = this.getChannel(channelId);
     if (!channel) return;
-    channel.lastHeartbeat = timestamp;
+
+    // 保存时间戳和当时的 status 快照
+    channel.lastHeartbeat = {
+      timestamp: timestamp,
+      status: this.getStatus(channelId)  // 快照当前状态
+    };
     this.saveChannel(channel);
+  },
+
+  // 判断某时间点是否在 noreply 日程内
+  isInNoReplyScheduleAt(channelId, timestamp) {
+    const channel = this.getChannel(channelId);
+    if (!channel?.schedule?.enabled) return false;
+
+    const date = new Date(timestamp);
+    const currentMinutes = date.getHours() * 60 + date.getMinutes();
+
+    for (const slot of channel.schedule.routine || []) {
+      if (!slot.noreply) continue;
+
+      const [startH, startM] = slot.start.split(':').map(Number);
+      const [endH, endM] = slot.end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      let inSlot = false;
+      if (startMinutes <= endMinutes) {
+        inSlot = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+      } else {
+        inSlot = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+      }
+
+      if (inSlot) return true;
+    }
+    return false;
+  },
+
+  // 判断某虚拟时间点是否应该静默（用于泊松分布过滤）
+  shouldBeSilentAt(channelId, virtualTimestamp) {
+    const vTime = new Date(virtualTimestamp).getTime();
+
+    // 1. 先检查 status（从上次心跳快照）
+    const lastHeartbeat = this.getLastHeartbeat(channelId);
+    if (lastHeartbeat?.status?.noreply) {
+      // 检查 status 是否在虚拟时间点还有效
+      const statusEndsAt = lastHeartbeat.status.endsAt
+        ? new Date(lastHeartbeat.status.endsAt).getTime()
+        : Infinity;
+
+      if (vTime < statusEndsAt) {
+        // status 未过期 → 按 status 的 noreply
+        return true;
+      }
+      // status 已过期，继续检查 schedule
+    }
+
+    // 2. 检查 schedule（用虚拟时间戳判断）
+    return this.isInNoReplyScheduleAt(channelId, virtualTimestamp);
   },
 
   // ========== 导出/导入 ==========
