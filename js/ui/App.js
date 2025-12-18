@@ -176,14 +176,14 @@ export function App() {
   if (view === 'presets') {
     return html`<${PresetsView}
       onBack=${showCreateOptions}
-      onSelectPreset=${showChat}
+      onSelectPreset=${showEditor}
     />`;
   }
 
   if (view === 'generator') {
     return html`<${GeneratorView}
       onBack=${showCreateOptions}
-      onUseCharacter=${showChat}
+      onUseCharacter=${showEditor}
       onEditCharacter=${showEditor}
     />`;
   }
