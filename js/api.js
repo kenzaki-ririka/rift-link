@@ -108,11 +108,14 @@ export const API = {
 
   // Claude API (支持工具调用)
   async _sendClaudeWithTools(systemPrompt, messages, apiKey, model, tools) {
+    // Claude 不支持连续的 assistant 消息，需要合并
+    const mergedMessages = this._mergeConsecutiveAssistantMessages(messages);
+
     const body = {
       model: model || 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt,
-      messages: messages.map(m => ({
+      messages: mergedMessages.map(m => ({
         role: m.role,
         content: m.content
       }))
@@ -363,12 +366,12 @@ export const API = {
   // 测试模式
   async _sendTestWithTools(systemPrompt, messages) {
     console.log('[API Request]', [
-        { role: 'system', content: systemPrompt },
-        ...messages.map(m => ({
-          role: m.role,
-          content: m.content
-        }))
-      ]
+      { role: 'system', content: systemPrompt },
+      ...messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+    ]
     );
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     const content = lastUserMessage ? lastUserMessage.content : '[测试模式] 没有收到用户消息';
@@ -447,5 +450,22 @@ export const API = {
       console.error('Parse character JSON error:', e, response);
       throw new Error('解析角色数据失败，请重试');
     }
+  },
+
+  // 合并连续的 assistant 消息（Claude API 不支持连续 assistant）
+  _mergeConsecutiveAssistantMessages(messages) {
+    const result = [];
+    for (const msg of messages) {
+      if (result.length > 0 && result[result.length - 1].role === 'assistant' && msg.role === 'assistant') {
+        // 合并到上一条，用空行分隔
+        result[result.length - 1] = {
+          ...result[result.length - 1],
+          content: result[result.length - 1].content + '\n\n' + msg.content
+        };
+      } else {
+        result.push({ ...msg });
+      }
+    }
+    return result;
   }
 };
