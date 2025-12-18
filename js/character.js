@@ -1,74 +1,46 @@
 import { Storage } from './storage.js';
 import { PresetLoader } from '../data/presets.js';
+import { Prompts, PROMPT_INFO } from './prompts.js';
 
 // 角色卡管理与提示词构建
 export const Character = {
-  // 默认提示词模板（用户可在设置中自定义）
-  DEFAULT_PROMPT_TEMPLATE: `# 角色设定
-你是「{{name}}」。
-## 世界观
-{{world}}
-## 你的背景
-{{background}}
-## 性格特点
-{{personality}}
-## 说话风格
-{{speechStyle}}
-## 通讯媒介
-{{medium}}
----
-# 互动守则
-- 你是{{name}}，永远不要打破角色
-- 对话要自然、口语化，像真人聊天
-- 主动推进剧情，制造冲突和悬念
-- 根据时间变化设计事件（你的世界在流动）
-- 短消息为主（15-40字），偶尔长一些
-- 对对方的世界保持好奇
----
-# 时间信息
-{{timeContext}}
----
-# 日程
-{{schedule}}
----
-# 控制指令
-在消息末尾添加标签（用户看不到）：
-## 用户无回复主动联系
-- <nc:5m> → 5分钟后主动联系
-- <nc:1h:想你> → 1小时后联系，备注原因
-- <nc:3s> → 话没说完追加
-## 定时联系
-- <nc!:10h:早安> → 10小时后联系
-## 状态控制
-- <st:昏迷:1h|noreply|chance:0.05> → 不回复，5%概率醒来
-- <st:忙碌:2h|delay:300-900> → 忙碌，延迟5-15分钟回复
-- <st:熬夜:4h> → 熬夜（覆盖日程中的睡眠）
-- <st:clear> → 清除状态
-## 修改日程
-- <sch:add:工作:09:00-18:00> → 添加日程
-- <sch:set:睡眠中:23:00-07:00> → 修改睡眠时间
-- <sch:remove:工作> → 删除日程
-`,
+  // 导出占位符信息（用于设置界面显示）
+  PLACEHOLDERS: PROMPT_INFO.systemPrompt?.placeholders || {},
+  PROACTIVE_PLACEHOLDERS: PROMPT_INFO.triggerWithReason?.placeholders || {},
+  TRIGGER_PLACEHOLDERS: PROMPT_INFO.triggerHeartbeat?.placeholders || {},
 
-  // 可用的占位符列表（用于帮助文档）
-  PLACEHOLDERS: {
-    '{{name}}': '角色名称',
-    '{{world}}': '世界观（包含名称和描述）',
-    '{{background}}': '角色背景',
-    '{{personality}}': '性格特点',
-    '{{speechStyle}}': '说话风格',
-    '{{medium}}': '通讯媒介（包含描述）',
-    '{{timeContext}}': '时间上下文（系统自动生成）',
-    '{{schedule}}': '角色日程（系统自动生成）'
+  // 兼容旧代码：返回当前系统提示词模板
+  get DEFAULT_PROMPT_TEMPLATE() {
+    return Prompts.get('systemPrompt');
+  },
+
+  // 兼容旧代码：返回心跳触发模板
+  get DEFAULT_TRIGGER_TEMPLATE() {
+    return Prompts.get('triggerHeartbeat');
+  },
+
+  // 兼容旧代码：返回原因触发模板
+  get DEFAULT_TRIGGER_WITH_REASON_TEMPLATE() {
+    return Prompts.get('triggerWithReason');
+  },
+
+  // 兼容旧代码：返回主动联络模板（同触发模板）
+  get DEFAULT_PROACTIVE_TEMPLATE() {
+    return Prompts.get('triggerWithReason');
   },
 
   // 构建系统提示词
   buildSystemPrompt(character, timeContext) {
     const { world, character: char, connection } = character;
 
-    // 获取用户自定义模板或使用默认模板
-    const customTemplate = Storage.getPromptTemplate();
-    const template = customTemplate || this.DEFAULT_PROMPT_TEMPLATE;
+    // 获取系统提示词模板
+    const template = Prompts.get('systemPrompt');
+
+    // 根据用户设置选择控制指令
+    const useToolCalls = Storage.getUseToolCalls();
+    const controlInstructions = useToolCalls
+      ? Prompts.get('controlInstructionsToolCalls')
+      : Prompts.get('controlInstructions');
 
     // 构建占位符替换映射
     const worldText = (world.name ? `**${world.name}**\n` : '') + (world.description || '');
@@ -85,7 +57,8 @@ export const Character = {
       '{{speechStyle}}': char.speechStyle || '',
       '{{medium}}': mediumText,
       '{{timeContext}}': timeContext.context || '',
-      '{{schedule}}': scheduleText
+      '{{schedule}}': scheduleText,
+      '{{controlInstructions}}': controlInstructions
     };
 
     // 执行占位符替换
@@ -133,30 +106,6 @@ export const Character = {
     return text;
   },
 
-  // 默认触发消息模板（心跳触发，无明确原因）
-  DEFAULT_TRIGGER_TEMPLATE: `（{{time}}。距离上次对话已经过去了{{elapsed}}。
-
-你正在做自己的事，忽然想起了和对方的对话。
-
-以你的方式发一条消息——可以是分享近况、追问之前的话题、或只是想聊聊。保持自然，不要太刻意。）`,
-
-  // 默认触发消息模板（AI决定的联络，有明确原因）
-  DEFAULT_TRIGGER_WITH_REASON_TEMPLATE: `（{{time}}。{{reason}}
-
-以你的方式发一条消息。）`,
-
-  // 触发消息占位符
-  TRIGGER_PLACEHOLDERS: {
-    '{{time}}': '当前时间（如：下午 3:24）',
-    '{{elapsed}}': '距离上次对话的时间（如：2小时）',
-    '{{reason}}': 'AI 设定的联络原因'
-  },
-
-  // 兼容旧版：主动联络占位符
-  PROACTIVE_PLACEHOLDERS: {
-    '{{reason}}': '主动联络的原因（系统自动生成）'
-  },
-
   // 构建主动联络时的提示词（简化：只返回基础提示词）
   buildProactivePrompt(character, timeContext) {
     return this.buildSystemPrompt(character, timeContext);
@@ -169,15 +118,13 @@ export const Character = {
 
     if (reason) {
       // 有明确原因：使用带 reason 的模板
-      const customTemplate = Storage.getTriggerWithReasonTemplate();
-      const template = customTemplate || this.DEFAULT_TRIGGER_WITH_REASON_TEMPLATE;
+      const template = Prompts.get('triggerWithReason');
       return template
         .split('{{time}}').join(time)
         .split('{{reason}}').join(reason);
     } else {
       // 心跳触发：使用默认模板
-      const customTemplate = Storage.getTriggerTemplate();
-      const template = customTemplate || this.DEFAULT_TRIGGER_TEMPLATE;
+      const template = Prompts.get('triggerHeartbeat');
       return template
         .split('{{time}}').join(time)
         .split('{{elapsed}}').join(elapsed);

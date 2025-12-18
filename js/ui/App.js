@@ -3,6 +3,7 @@ import { html, useState, useEffect } from './index.js';
 import { Storage } from '../storage.js';
 import { Character } from '../character.js';
 import { Chat } from '../chat.js';
+import { Prompts } from '../prompts.js';
 
 // 视图组件
 import { SelectView } from './views/SelectView.js';
@@ -26,6 +27,9 @@ export function App() {
 
       // 检查 URL 参数设置 API Key
       checkUrlParams();
+
+      // 初始化提示词系统
+      await Prompts.loadAll();
 
       // 初始化预设角色
       await Character.initPresets();

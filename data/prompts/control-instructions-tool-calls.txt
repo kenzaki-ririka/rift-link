@@ -1,0 +1,27 @@
+# 控制指令
+你可以使用以下工具函数来控制系统行为（用户看不到）：
+
+## 主动联络
+使用 set_next_contact 函数设置下次联络时间：
+- time: 时间数值
+- unit: 时间单位 (s=秒, m=分钟, h=小时)
+- reason: 联络原因（可选）
+- persistent: 是否持久联络，不会被用户回复打断（可选）
+
+## 状态控制
+使用 set_status 函数设置当前状态：
+- action: "set" 设置状态 / "clear" 清除状态
+- label: 状态标签（如"睡眠中"、"忙碌"）
+- duration: 持续时间 { time: 数值, unit: 单位 }
+- noreply: 是否不回复消息
+- delay: 回复延迟范围（秒）{ min: 最小, max: 最大 }
+- chance: 主动联络概率乘数（0-1）
+
+## 修改日程
+使用 modify_schedule 函数修改日程表：
+- action: "add" 添加 / "remove" 删除 / "set" 修改
+- label: 日程标签
+- start: 开始时间（HH:MM格式）
+- end: 结束时间（HH:MM格式）
+- noreply: 该时段是否不回复
+- chance: 该时段主动联络概率乘数

@@ -1,4 +1,6 @@
 // 时间管理与主动联络判定
+import { Prompts } from './prompts.js';
+
 export const TimeManager = {
   // 格式化时间差
   formatTimeDiff(ms) {
@@ -60,44 +62,44 @@ export const TimeManager = {
     const now = Date.now();
     const lastHeartbeatTime = new Date(lastHeartbeat).getTime();
     const elapsed = now - lastHeartbeatTime;
-    
-    console.log('[DEBUG] elapsed (ms):', elapsed, '约', Math.round(elapsed/1000), '秒');
-    
+
+    console.log('[DEBUG] elapsed (ms):', elapsed, '约', Math.round(elapsed / 1000), '秒');
+
     // 计算有多少个检查间隔
     const intervalMs = checkIntervalMinutes * 1000;
     const intervals = Math.floor(elapsed / intervalMs);
-    
+
     console.log('[DEBUG] intervalMs:', intervalMs, 'intervals:', intervals);
-    
+
     if (intervals <= 0) {
       console.log('[DEBUG] intervals <= 0，返回空数组');
       return [];
     }
-    
+
     // 使用泊松分布计算触发次数
     // 期望值 λ = intervals * baseChance
     const lambda = intervals * baseChance;
     const count = this.samplePoisson(lambda);
-    
+
     console.log('[DEBUG] lambda:', lambda, 'count:', count);
-    
+
     if (count <= 0) {
       console.log('[DEBUG] count <= 0，返回空数组');
       return [];
     }
-    
+
     // 生成 count 个随机触发时间点
     // 在离线期间均匀分布（模拟每个间隔独立判定的效果）
     const contacts = [];
     const avgDelay = (replyDelayMinutes.min + replyDelayMinutes.max) / 2 * 1000;
-    
+
     for (let i = 0; i < count; i++) {
       // 在离线期间随机选择一个时间点
       const randomOffset = Math.random() * elapsed;
       // 加上随机延迟
       const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
       const contactTime = lastHeartbeatTime + randomOffset + delay;
-      
+
       // 确保不超过当前时间
       if (contactTime < now) {
         contacts.push({
@@ -106,33 +108,33 @@ export const TimeManager = {
         });
       }
     }
-    
+
     // 按时间排序
     contacts.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    
+
     return contacts;
   },
 
   // 泊松分布采样（Knuth 算法，小 λ 时使用；大 λ 时使用正态近似）
   samplePoisson(lambda) {
     if (lambda <= 0) return 0;
-    
+
     // 对于大 λ，使用正态近似 N(λ, √λ)
     if (lambda > 30) {
       const normal = this.sampleNormal();
       return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * normal));
     }
-    
+
     // Knuth 算法
     const L = Math.exp(-lambda);
     let k = 0;
     let p = 1;
-    
+
     do {
       k++;
       p *= Math.random();
     } while (p > L);
-    
+
     return k - 1;
   },
 
@@ -148,16 +150,16 @@ export const TimeManager = {
     if (!proactiveSettings?.enabled) return null;
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = proactiveSettings;
-    
+
     // 每 checkIntervalMinutes 秒检查一次
     const intervalMs = checkIntervalMinutes * 1000;
-    
+
     const timerId = setInterval(() => {
       // 概率判定
       if (Math.random() < baseChance) {
         // 判定成功，计算延迟后触发（replyDelayMinutes 现在直接存储秒数）
         const delay = (replyDelayMinutes.min + Math.random() * (replyDelayMinutes.max - replyDelayMinutes.min)) * 1000;
-        
+
         setTimeout(() => {
           callback(channelId);
         }, delay);
@@ -167,10 +169,10 @@ export const TimeManager = {
     return timerId;
   },
 
-  // 构建时间上下文（告诉AI时间信息）
+  // 构建时间上下文（告诉AI时间信息）- 使用可编辑模板
   buildTimeContext(messages, currentTimestamp) {
     const now = new Date(currentTimestamp);
-    
+
     // 格式化当前时间（包含日期）
     const hours = now.getHours();
     let timeOfDay = '';
@@ -179,19 +181,25 @@ export const TimeManager = {
     else if (hours >= 14 && hours < 18) timeOfDay = '下午';
     else if (hours >= 18 && hours < 22) timeOfDay = '晚上';
     else timeOfDay = '深夜';
-    
+
     const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
     const month = now.getMonth() + 1;
     const day = now.getDate();
     const weekday = weekdays[now.getDay()];
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
+
     const currentTime = `${month}月${day}日 ${weekday} ${timeOfDay} ${timeStr}`;
 
+    // 首次联络
     if (messages.length === 0) {
+      const template = Prompts.get('timeContextFirst');
+      const context = this.renderTemplate(template, {
+        currentTime: currentTime
+      });
+
       return {
         isFirstContact: true,
-        context: '这是对方第一次回复你的消息。',
+        context: context,
         currentTime: currentTime,
         timeSinceLastAssistant: null
       };
@@ -212,31 +220,44 @@ export const TimeManager = {
       if (lastAssistantMsg && lastUserMsg) break;
     }
 
-    let context = '';
+    // 准备模板数据
+    const data = {
+      currentTime: currentTime,
+      hasLastAssistant: false,
+      lastAssistantTime: '',
+      timeSinceLastAssistant: '',
+      hasUserReply: false,
+      lastUserTime: '',
+      waitTime: ''
+    };
+
     let timeSinceLastAssistant = null;
 
     if (lastAssistantMsg) {
       const lastMsgTime = new Date(lastAssistantMsg.timestamp);
       const diff = now - lastMsgTime;
       timeSinceLastAssistant = this.formatTimeDiff(diff);
-      context += `你上次发消息的时间：${this.formatMessageTime(lastAssistantMsg.timestamp)}（${timeSinceLastAssistant}前）\n`;
+
+      data.hasLastAssistant = true;
+      data.lastAssistantTime = this.formatMessageTime(lastAssistantMsg.timestamp);
+      data.timeSinceLastAssistant = timeSinceLastAssistant;
     }
 
-    if (lastUserMsg) {
+    if (lastUserMsg && lastAssistantMsg) {
       const lastUserTime = new Date(lastUserMsg.timestamp);
-      
-      if (lastAssistantMsg) {
-        const assistantTime = new Date(lastAssistantMsg.timestamp);
-        if (lastUserTime > assistantTime) {
-          // 用户回复了
-          const waitTime = lastUserTime - assistantTime;
-          context += `对方回复时间：${this.formatMessageTime(lastUserMsg.timestamp)}\n`;
-          context += `对方让你等了：${this.formatTimeDiff(waitTime)}\n`;
-        }
+      const assistantTime = new Date(lastAssistantMsg.timestamp);
+
+      if (lastUserTime > assistantTime) {
+        // 用户回复了
+        const waitTime = lastUserTime - assistantTime;
+        data.hasUserReply = true;
+        data.lastUserTime = this.formatMessageTime(lastUserMsg.timestamp);
+        data.waitTime = this.formatTimeDiff(waitTime);
       }
     }
 
-    context += `对方那边现在是：${currentTime}`;
+    const template = Prompts.get('timeContext');
+    const context = this.renderTemplate(template, data);
 
     return {
       isFirstContact: false,
@@ -244,5 +265,27 @@ export const TimeManager = {
       currentTime: currentTime,
       timeSinceLastAssistant: timeSinceLastAssistant
     };
+  },
+
+  // 简单模板渲染（支持 {{var}} 和 {{#condition}}...{{/condition}}）
+  renderTemplate(template, data) {
+    let result = template;
+
+    // 处理条件块 {{#key}}...{{/key}}
+    result = result.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+      return data[key] ? content : '';
+    });
+
+    // 替换变量 {{key}}
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string' || typeof value === 'number') {
+        result = result.split(`{{${key}}}`).join(String(value));
+      }
+    }
+
+    // 清理多余的空行
+    result = result.replace(/\n{3,}/g, '\n\n').trim();
+
+    return result;
   }
 };

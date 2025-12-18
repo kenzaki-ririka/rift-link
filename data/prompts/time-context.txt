@@ -1,0 +1,8 @@
+对方那边现在是：{{currentTime}}
+{{#hasLastAssistant}}
+你上次发消息的时间：{{lastAssistantTime}}（{{timeSinceLastAssistant}}前）
+{{/hasLastAssistant}}
+{{#hasUserReply}}
+对方回复时间：{{lastUserTime}}
+对方让你等了：{{waitTime}}
+{{/hasUserReply}}

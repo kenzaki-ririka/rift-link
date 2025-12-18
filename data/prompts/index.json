@@ -1,0 +1,40 @@
+{
+    "version": 1,
+    "prompts": {
+        "systemPrompt": {
+            "file": "system-prompt.txt",
+            "name": "系统提示词",
+            "description": "角色扮演的基础设定，包含角色信息和互动守则"
+        },
+        "controlInstructions": {
+            "file": "control-instructions.txt",
+            "name": "控制指令（短标签）",
+            "description": "AI通过短标签控制主动联络、状态和日程的说明"
+        },
+        "controlInstructionsToolCalls": {
+            "file": "control-instructions-tool-calls.txt",
+            "name": "控制指令（工具调用）",
+            "description": "AI通过工具函数控制主动联络、状态和日程的说明"
+        },
+        "triggerHeartbeat": {
+            "file": "trigger-heartbeat.txt",
+            "name": "心跳触发消息",
+            "description": "定时主动联络时的触发消息模板"
+        },
+        "triggerWithReason": {
+            "file": "trigger-with-reason.txt",
+            "name": "原因触发消息",
+            "description": "AI决定联络时的触发消息模板"
+        },
+        "timeContext": {
+            "file": "time-context.txt",
+            "name": "时间上下文",
+            "description": "告诉AI当前时间和对话间隔信息的模板"
+        },
+        "timeContextFirst": {
+            "file": "time-context-first.txt",
+            "name": "首次联络时间上下文",
+            "description": "用户首次回复时的时间上下文模板"
+        }
+    }
+}

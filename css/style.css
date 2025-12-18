@@ -16,7 +16,8 @@
   --accent-dim: #2a5a8a;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
@@ -299,12 +300,25 @@ html, body {
   animation: bounce 1.4s ease-in-out infinite;
 }
 
-.message-pending span:nth-child(2) { animation-delay: 0.2s; }
-.message-pending span:nth-child(3) { animation-delay: 0.4s; }
+.message-pending span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.message-pending span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-6px); }
+
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-6px);
+  }
 }
 
 .chat-input-area {
@@ -613,6 +627,100 @@ html, body {
 
 .settings-buttons button.danger:hover {
   background: #2a1515;
+}
+
+/* ============ Toggle Switch ============ */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.toggle-switch.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.toggle-switch.active .toggle-knob {
+  left: 24px;
+  background: var(--accent);
+}
+
+.toggle-label {
+  font-size: 0.9em;
+  color: var(--text);
+}
+
+/* ============ Prompt Tabs ============ */
+.prompt-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.prompt-tab {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.8em;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.prompt-tab:hover {
+  color: var(--text);
+  border-color: #444;
+}
+
+.prompt-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.prompt-tab.custom::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.prompt-tab .custom-badge {
+  display: none;
 }
 
 /* ============ 滚动条 ============ */
@@ -995,7 +1103,9 @@ html, body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .generator-error {
@@ -1157,11 +1267,11 @@ html, body {
   .select-header {
     padding: 30px 0 20px;
   }
-  
+
   .chat-messages {
     padding: 12px;
   }
-  
+
   .message {
     max-width: 90%;
   }

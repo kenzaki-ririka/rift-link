@@ -7,7 +7,8 @@ export const Storage = {
     PROMPT_TEMPLATE: 'rift_prompt_template',
     PROACTIVE_TEMPLATE: 'rift_proactive_template',
     TRIGGER_TEMPLATE: 'rift_trigger_template',
-    TRIGGER_WITH_REASON_TEMPLATE: 'rift_trigger_reason_template'
+    TRIGGER_WITH_REASON_TEMPLATE: 'rift_trigger_reason_template',
+    USE_TOOL_CALLS: 'rift_use_tool_calls'  // 控制解析模式：true=工具调用, false=短标签解析（默认）
   },
 
   // 数据版本，用于迁移
@@ -157,6 +158,60 @@ export const Storage = {
     } else {
       localStorage.removeItem(this.KEYS.TRIGGER_WITH_REASON_TEMPLATE);
     }
+  },
+
+  // ========== 解析模式设置 ==========
+  // true = 使用工具调用 (Tool Calls)
+  // false = 使用短标签解析 (Short Tags) - 默认
+  getUseToolCalls() {
+    const data = localStorage.getItem(this.KEYS.USE_TOOL_CALLS);
+    return data ? JSON.parse(data) : false;  // 默认使用短标签解析
+  },
+
+  saveUseToolCalls(useToolCalls) {
+    localStorage.setItem(this.KEYS.USE_TOOL_CALLS, JSON.stringify(useToolCalls));
+  },
+
+  // ========== 自定义提示词模板 ==========
+  // 使用动态键名存储各类提示词：rift_prompt_custom_{key}
+  getCustomPrompt(key) {
+    const data = localStorage.getItem(`rift_prompt_custom_${key}`);
+    return data ? JSON.parse(data) : null;  // null 表示使用默认
+  },
+
+  saveCustomPrompt(key, content) {
+    if (content !== null && content !== undefined) {
+      localStorage.setItem(`rift_prompt_custom_${key}`, JSON.stringify(content));
+    } else {
+      localStorage.removeItem(`rift_prompt_custom_${key}`);
+    }
+  },
+
+  clearCustomPrompt(key) {
+    localStorage.removeItem(`rift_prompt_custom_${key}`);
+  },
+
+  // 检查是否有任何自定义提示词
+  hasAnyCustomPrompt() {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('rift_prompt_custom_')) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  // 清除所有自定义提示词
+  clearAllCustomPrompts() {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('rift_prompt_custom_')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
   },
 
   // ========== 频道（角色）管理 ==========
