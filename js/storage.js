@@ -493,6 +493,74 @@ export const Storage = {
     return channel;
   },
 
+  // ========== 待回复消息（日程 noreply 期间） ==========
+  getPendingMessages(channelId) {
+    const channel = this.getChannel(channelId);
+    return channel?.pendingMessages || [];
+  },
+
+  addPendingMessage(channelId, msg) {
+    const channel = this.getChannel(channelId);
+    if (!channel) return;
+
+    if (!channel.pendingMessages) {
+      channel.pendingMessages = [];
+    }
+    channel.pendingMessages.push(msg);
+    this.saveChannel(channel);
+  },
+
+  clearPendingMessages(channelId) {
+    const channel = this.getChannel(channelId);
+    if (!channel) return;
+
+    channel.pendingMessages = [];
+    this.saveChannel(channel);
+  },
+
+  // 检查当前是否在 noreply 日程时段
+  isInNoReplySchedule(channelId) {
+    const status = this.getScheduleStatus(channelId);
+    return status?.noreply === true;
+  },
+
+  // 获取当前 noreply 日程结束还需多少分钟
+  getMinutesUntilScheduleEnd(channelId) {
+    const channel = this.getChannel(channelId);
+    if (!channel?.schedule?.enabled) return 0;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    for (const slot of channel.schedule.routine || []) {
+      if (!slot.noreply) continue;
+
+      const [startH, startM] = slot.start.split(':').map(Number);
+      const [endH, endM] = slot.end.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+
+      let inSlot = false;
+      if (startMinutes <= endMinutes) {
+        inSlot = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+      } else {
+        inSlot = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+      }
+
+      if (inSlot) {
+        // 计算到结束还有多少分钟
+        if (currentMinutes >= endMinutes) {
+          // 跨日情况：当前在 start 后，需要等到第二天的 end
+          return (24 * 60 - currentMinutes) + endMinutes;
+        } else {
+          return endMinutes - currentMinutes;
+        }
+      }
+    }
+
+    return 0;
+  },
+
   // ========== 清除数据 ==========
   clearAll() {
     localStorage.removeItem(this.KEYS.SETTINGS);

@@ -7,8 +7,9 @@ import { getToolDefinitions, executeToolCalls } from './tools/index.js';
 // 聊天逻辑
 export const Chat = {
   currentChannelId: null,
-  proactiveTimer: null,           // 定时概率检查（每10分钟）
+  proactiveTimer: null,           // 定时概率检查（每心跳周期）
   scheduledContactTimer: null,    // AI 决定的精确定时联络
+  pendingCheckTimer: null,        // 待回复消息检查（每293秒）
 
   // 初始化聊天
   async init(channelId) {
@@ -23,6 +24,10 @@ export const Chat = {
       clearTimeout(this.scheduledContactTimer);
       this.scheduledContactTimer = null;
     }
+    if (this.pendingCheckTimer) {
+      clearInterval(this.pendingCheckTimer);
+      this.pendingCheckTimer = null;
+    }
 
     const channel = Storage.getChannel(channelId);
     if (!channel) return;
@@ -30,10 +35,16 @@ export const Chat = {
     // 检查离线期间的主动联络
     await this.checkOfflineContacts(channel);
 
+    // 检查待回复消息（noreply 时段结束后可能有）
+    await this.checkPendingMessages(channelId);
+
     // 只有当用户已发送过消息时，才设置主动联络检查
     if (this.hasUserMessage(channel)) {
       this.setupProactiveCheck(channel);
     }
+
+    // 设置待回复消息检查定时器（293秒，约5分钟的质数）
+    this.setupPendingCheckTimer(channelId);
 
     // 更新最后访问时间
     Storage.setLastVisit(channelId, new Date().toISOString());
@@ -279,6 +290,24 @@ export const Chat = {
       }
     }
 
+    // 检查是否在 noreply 日程时段
+    if (Storage.isInNoReplySchedule(channelId)) {
+      // 存入待回复消息，不调用 AI
+      Storage.addPendingMessage(channelId, userMsg);
+      console.log('[Chat] 当前在 noreply 时段，消息存入待回复队列');
+      return { pending: true, scheduleLabel: Storage.getScheduleStatus(channelId)?.label };
+    }
+
+    // 检查是否有待回复消息需要一起发送
+    const pendingMessages = Storage.getPendingMessages(channelId);
+    if (pendingMessages.length > 0) {
+      // 合并所有待回复消息 + 当前消息
+      console.log(`[Chat] 有 ${pendingMessages.length} 条待回复消息，合并发送`);
+      const allMessages = [...pendingMessages, userMsg];
+      Storage.clearPendingMessages(channelId);
+      return await this.processMergedMessages(channelId, allMessages, settings);
+    }
+
     // 检查当前状态是否有回复延迟
     const status = Storage.getStatus(channelId);
     if (status && status.replyDelay) {
@@ -301,6 +330,62 @@ export const Chat = {
 
     // 正常发送（无延迟）
     return await this.processAndSendReply(channelId, content, settings);
+  },
+
+  // 处理合并的待回复消息
+  async processMergedMessages(channelId, messages, settings) {
+    const channel = Storage.getChannel(channelId);
+    if (!channel) throw new Error('频道不存在');
+
+    // 格式化：每条消息带时间戳，空行分隔
+    const mergedContent = messages.map(m => {
+      const time = this.formatMessageTime(m.timestamp);
+      return `[${time}] ${m.content}`;
+    }).join('\n\n');
+
+    console.log('[Chat] 合并消息内容:', mergedContent);
+
+    // 调用正常回复流程
+    return await this.processAndSendReply(channelId, mergedContent, settings);
+  },
+
+  // 格式化消息时间为 HH:MM
+  formatMessageTime(timestamp) {
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  },
+
+  // 检查并处理待回复消息
+  async checkPendingMessages(channelId) {
+    if (Storage.isInNoReplySchedule(channelId)) {
+      // 还在 noreply 时段，不处理
+      return;
+    }
+
+    const pendingMessages = Storage.getPendingMessages(channelId);
+    if (pendingMessages.length === 0) {
+      return;
+    }
+
+    console.log(`[Chat] 发现 ${pendingMessages.length} 条待回复消息，处理中...`);
+
+    const settings = Storage.getSettings();
+    Storage.clearPendingMessages(channelId);
+
+    const msg = await this.processMergedMessages(channelId, pendingMessages, settings);
+    if (msg) {
+      window.dispatchEvent(new CustomEvent('rift-new-message', { detail: { channelId } }));
+    }
+  },
+
+  // 设置待回复消息检查定时器（293秒）
+  setupPendingCheckTimer(channelId) {
+    this.pendingCheckTimer = setInterval(async () => {
+      if (this.currentChannelId !== channelId) return;
+      await this.checkPendingMessages(channelId);
+    }, 293000);  // 293秒，约5分钟的质数
   },
 
   // 处理并发送AI回复（内部方法）
@@ -327,15 +412,18 @@ export const Chat = {
     // 准备消息历史（不包括刚发的）
     const historyLimit = settings.historyLimit || 20;
     const historyMessages = historyLimit === 0 ? messages.slice(0, -1) : messages.slice(-(historyLimit + 1), -1);
+    // 给用户消息加时间前缀 [HH:MM]
     const recentMessages = historyMessages.map(m => ({
       role: m.role,
-      content: m.content
+      content: m.role === 'user'
+        ? `[${this.formatMessageTime(m.timestamp)}] ${m.content}`
+        : m.content
     }));
 
-    // 添加当前消息
+    // 添加当前消息（已经带时间戳或是合并消息）
     recentMessages.push({
       role: 'user',
-      content: content
+      content: content.startsWith('[') ? content : `[${this.formatMessageTime(new Date().toISOString())}] ${content}`
     });
 
     // 获取工具定义
@@ -523,6 +611,10 @@ export const Chat = {
     if (this.scheduledContactTimer) {
       clearTimeout(this.scheduledContactTimer);
       this.scheduledContactTimer = null;
+    }
+    if (this.pendingCheckTimer) {
+      clearInterval(this.pendingCheckTimer);
+      this.pendingCheckTimer = null;
     }
     this.currentChannelId = null;
   }
