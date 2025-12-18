@@ -48,7 +48,7 @@ export const Chat = {
   // 检查离线期间应该触发的主动联络
   async checkOfflineContacts(channel) {
     console.log('[DEBUG] checkOfflineContacts 被调用, channelId:', channel.id);
-    
+
     // 使用心跳时间（定时器最后运行的时间），而不是 lastVisit
     const lastHeartbeat = Storage.getLastHeartbeat(channel.id);
     console.log('[DEBUG] lastHeartbeat:', lastHeartbeat);
@@ -90,8 +90,13 @@ export const Chat = {
     }
   },
 
-  // 设置主动联络检查
+  // 设置主动联络检查（心跳定时器）
+  // [测试] 已注释：只测试泊松分布离线模拟
+
   setupProactiveCheck(channel) {
+
+
+
     if (!channel.proactiveContact?.enabled) return;
 
     const { baseChance, checkIntervalMinutes, replyDelayMinutes } = channel.proactiveContact;
@@ -129,6 +134,7 @@ export const Chat = {
         }, delayMs);
       }
     }, intervalMs);
+
   },
 
   // 生成主动消息

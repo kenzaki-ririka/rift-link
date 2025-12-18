@@ -49,12 +49,12 @@ export const TimeManager = {
 
   // 计算离线期间应该触发的主动联络次数（使用泊松分布，O(k) 复杂度）
   calculateOfflineContacts(lastHeartbeat, proactiveSettings) {
-    console.log('[DEBUG] calculateOfflineContacts 被调用');
-    console.log('[DEBUG] lastHeartbeat:', lastHeartbeat);
-    console.log('[DEBUG] proactiveSettings:', proactiveSettings);
+    //console.log('[DEBUG] calculateOfflineContacts 被调用');
+    //console.log('[DEBUG] lastHeartbeat:', lastHeartbeat);
+    //console.log('[DEBUG] proactiveSettings:', proactiveSettings);
 
     if (!lastHeartbeat || !proactiveSettings?.enabled) {
-      console.log('[DEBUG] 条件不满足，返回空数组 (lastHeartbeat或enabled为false)');
+      //console.log('[DEBUG] 条件不满足，返回空数组 (lastHeartbeat或enabled为false)');
       return [];
     }
 
@@ -63,16 +63,16 @@ export const TimeManager = {
     const lastHeartbeatTime = new Date(lastHeartbeat).getTime();
     const elapsed = now - lastHeartbeatTime;
 
-    console.log('[DEBUG] elapsed (ms):', elapsed, '约', Math.round(elapsed / 1000), '秒');
+    //console.log('[DEBUG] elapsed (ms):', elapsed, '约', Math.round(elapsed / 1000), '秒');
 
     // 计算有多少个检查间隔
     const intervalMs = checkIntervalMinutes * 1000;
     const intervals = Math.floor(elapsed / intervalMs);
-
-    console.log('[DEBUG] intervalMs:', intervalMs, 'intervals:', intervals);
+    console.log(intervals)
+    //console.log('[DEBUG] intervalMs:', intervalMs, 'intervals:', intervals);
 
     if (intervals <= 0) {
-      console.log('[DEBUG] intervals <= 0，返回空数组');
+      //console.log('[DEBUG] intervals <= 0，返回空数组');
       return [];
     }
 
@@ -81,10 +81,10 @@ export const TimeManager = {
     const lambda = intervals * baseChance;
     const count = this.samplePoisson(lambda);
 
-    console.log('[DEBUG] lambda:', lambda, 'count:', count);
+    //console.log('[DEBUG] lambda:', lambda, 'count:', count);
 
     if (count <= 0) {
-      console.log('[DEBUG] count <= 0，返回空数组');
+      //console.log('[DEBUG] count <= 0，返回空数组');
       return [];
     }
 

@@ -886,7 +886,8 @@ const App = {
       channel.messages = [];
 
       Storage.saveChannel(channel);
-      this.showChat(channel.id);
+      // 进入编辑界面而不是直接聊天
+      this.showEditor(channel.id);
     } catch (error) {
       console.error('Load preset error:', error);
       alert('加载预设失败');
@@ -1089,7 +1090,8 @@ const App = {
 
     Storage.saveChannel(channel);
     this.generatedCharacter = null;
-    this.showChat(channel.id);
+    // 进入编辑界面而不是直接聊天
+    this.showEditor(channel.id);
   },
 
   // 编辑生成的角色

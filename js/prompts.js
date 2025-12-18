@@ -114,6 +114,7 @@ export const PROMPT_INFO = {
             '{{personality}}': '性格特点',
             '{{speechStyle}}': '说话风格',
             '{{medium}}': '通讯媒介（包含描述）',
+            '{{firstMessage}}': '角色的开场白（第一条消息）',
             '{{timeContext}}': '时间上下文（系统自动生成）',
             '{{schedule}}': '角色日程（系统自动生成）',
             '{{controlInstructions}}': '控制指令（根据解析模式自动替换）'

@@ -58,11 +58,19 @@ export const Character = {
       '{{medium}}': mediumText,
       '{{timeContext}}': timeContext.context || '',
       '{{schedule}}': scheduleText,
-      '{{controlInstructions}}': controlInstructions
+      '{{controlInstructions}}': controlInstructions,
+      '{{firstMessage}}': connection.firstMessage || ''
     };
 
     // 执行占位符替换
     let prompt = template;
+
+    // 处理条件块 {{#key}}...{{/key}}
+    prompt = prompt.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (match, key, content) => {
+      return replacements[`{{${key}}}`] ? content : '';
+    });
+
+    // 简单占位符替换
     for (const [placeholder, value] of Object.entries(replacements)) {
       prompt = prompt.split(placeholder).join(value);
     }
