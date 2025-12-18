@@ -228,15 +228,21 @@ export const Chat = {
 
       reply = Character.removeProactiveTag(reply);
 
-      const newMsg = {
-        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        role: 'assistant',
-        content: reply,
-        timestamp: msgTimestamp,
-        isProactive: true
-      };
+      // 拆分空行为多条消息
+      const parts = reply.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
 
-      Storage.saveMessage(channelId, newMsg);
+      let lastMsg = null;
+      for (let i = 0; i < parts.length; i++) {
+        const msg = {
+          id: 'msg_' + Date.now() + '_proactive_' + i,
+          role: 'assistant',
+          content: parts[i],
+          timestamp: msgTimestamp,
+          isProactive: true
+        };
+        Storage.saveMessage(channelId, msg);
+        lastMsg = msg;
+      }
 
       // 主动联络成功，清除当前状态（表示"醒了"或"活动恢复"）
       const currentStatus = Storage.getStatus(channelId);
@@ -505,16 +511,22 @@ export const Chat = {
     // 移除标记（无论是否使用工具调用）
     reply = Character.removeProactiveTag(reply);
 
-    // 保存AI回复
-    const assistantMsg = {
-      id: 'msg_' + Date.now() + '_reply',
-      role: 'assistant',
-      content: reply,
-      timestamp: new Date().toISOString()
-    };
-    Storage.saveMessage(channelId, assistantMsg);
+    // 拆分空行为多条消息
+    const parts = reply.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
 
-    return assistantMsg;
+    let lastMsg = null;
+    for (let i = 0; i < parts.length; i++) {
+      const msg = {
+        id: 'msg_' + Date.now() + '_reply_' + i,
+        role: 'assistant',
+        content: parts[i],
+        timestamp: new Date().toISOString()
+      };
+      Storage.saveMessage(channelId, msg);
+      lastMsg = msg;
+    }
+
+    return lastMsg;
   },
 
   // 安排延迟回复
